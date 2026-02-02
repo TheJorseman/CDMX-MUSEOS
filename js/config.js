@@ -43,11 +43,17 @@ function detectEnvironment() {
     const protocol = window.location.protocol;
     
     if (hostname.includes('github.io')) {
+        // Para GitHub Pages, construir URL correctamente
+        // Ej: https://usuario.github.io/repo/ -> https://raw.githubusercontent.com/usuario/repo/main/
+        const pathParts = window.location.pathname.split('/').filter(p => p);
+        const username = hostname.split('.')[0];
+        const repo = pathParts[0] || '';
+        
         return {
             name: 'github-pages',
             isProduction: true,
             isLocal: false,
-            url: window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/'),
+            url: `https://raw.githubusercontent.com/${username}/${repo}/main/`,
             description: 'GitHub Pages'
         };
     } else if (hostname.includes('vercel.app') || hostname.includes('now.sh')) {
