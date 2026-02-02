@@ -108,14 +108,17 @@ async function loadCSVAutomatically() {
                 
                 if (response.ok) {
                     const csv = await response.text();
-                    const results = Papa.parse(csv, { header: true });
+                    const results = Papa.parse(csv, { header: true, skipEmptyLines: true });
 
-                    if (results.errors.length > 0) {
-                        console.error('Error al parsear CSV');
+                    // PapaParse puede reportar "warnings" en errors que no son reales
+                    const criticalErrors = results.errors.filter(e => e.code !== 'TooManyFields');
+                    
+                    museums = results.data.filter(row => row.nombre_oficial && row.nombre_oficial.trim());
+                    
+                    if (museums.length === 0) {
+                        console.error('No se encontraron museos en el CSV');
                         continue;
                     }
-
-                    museums = results.data.filter(row => row.nombre_oficial);
 
                     // Si el CSV tiene coordenadas, usarlas
                     if (museums[0] && museums[0].latitud && museums[0].longitud) {
