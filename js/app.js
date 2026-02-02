@@ -1,3 +1,48 @@
+// ===== SEGURIDAD Y SANITIZACIÓN =====
+
+/**
+ * Sanitiza texto para prevenir XSS attacks
+ * Escapa caracteres especiales de HTML
+ */
+function sanitizeHTML(text) {
+    if (typeof text !== 'string') return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Crea un elemento seguro con texto sanitizado
+ */
+function createSafeElement(tag, text, attributes = {}) {
+    const elem = document.createElement(tag);
+    if (text) {
+        elem.textContent = text;  // textContent es seguro contra XSS
+    }
+    Object.entries(attributes).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+            elem.setAttribute(key, value);
+        }
+    });
+    return elem;
+}
+
+/**
+ * Valida y sanitiza URLs
+ */
+function validateURL(url) {
+    if (typeof url !== 'string') return '';
+    try {
+        const parsed = new URL(url, window.location.href);
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+            return '';
+        }
+        return parsed.href;
+    } catch (e) {
+        return '';
+    }
+}
+
 // ===== APLICACIÓN PRINCIPAL =====
 
 let map;
@@ -393,23 +438,67 @@ function displayMuseums() {
         item.className = 'museum-item';
         const isSelected = selectedMuseums.has(index);
         
-        item.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                <input type="checkbox" class="museum-checkbox" data-index="${index}" ${isSelected ? 'checked' : ''} style="cursor: pointer; width: 18px; height: 18px;">
-                <div style="flex: 1;">
-                    <div class="museum-name">${museum.nombre_oficial}</div>
-                    <div class="museum-info">
-                        <div><strong>📍</strong> ${museum.colonia || 'N/A'}</div>
-                        <div><strong>💰</strong> ${museum.costos || 'Consultar'}</div>
-                        <div><strong>🕐</strong> ${museum.horarios || 'No especificado'}</div>
-                    </div>
-                </div>
-            </div>
-            <div class="badge">#${index + 1}</div>
-        `;
-
+        // Crear estructura HTML de forma segura sin innerHTML
+        const flexContainer = document.createElement('div');
+        flexContainer.style.display = 'flex';
+        flexContainer.style.alignItems = 'center';
+        flexContainer.style.gap = '10px';
+        flexContainer.style.flex = '1';
+        
+        // Checkbox
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'museum-checkbox';
+        checkbox.setAttribute('data-index', String(index));
+        checkbox.style.cursor = 'pointer';
+        checkbox.style.width = '18px';
+        checkbox.style.height = '18px';
+        if (isSelected) checkbox.checked = true;
+        
+        // Contenedor de información
+        const infoContainer = document.createElement('div');
+        infoContainer.style.flex = '1';
+        
+        // Nombre del museo (seguro contra XSS)
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'museum-name';
+        nameDiv.textContent = museum.nombre_oficial || '';
+        
+        // Información adicional
+        const detailsDiv = document.createElement('div');
+        detailsDiv.className = 'museum-info';
+        
+        const coloniaDiv = document.createElement('div');
+        coloniaDiv.innerHTML = '<strong>📍</strong> ';
+        coloniaDiv.appendChild(createSafeElement('span', museum.colonia || 'N/A'));
+        
+        const costDiv = document.createElement('div');
+        costDiv.innerHTML = '<strong>💰</strong> ';
+        costDiv.appendChild(createSafeElement('span', museum.costos || 'Consultar'));
+        
+        const horarioDiv = document.createElement('div');
+        horarioDiv.innerHTML = '<strong>🕐</strong> ';
+        horarioDiv.appendChild(createSafeElement('span', museum.horarios || 'No especificado'));
+        
+        detailsDiv.appendChild(coloniaDiv);
+        detailsDiv.appendChild(costDiv);
+        detailsDiv.appendChild(horarioDiv);
+        
+        infoContainer.appendChild(nameDiv);
+        infoContainer.appendChild(detailsDiv);
+        
+        flexContainer.appendChild(checkbox);
+        flexContainer.appendChild(infoContainer);
+        
+        // Badge
+        const badge = document.createElement('div');
+        badge.className = 'badge';
+        badge.textContent = `#${index + 1}`;
+        
+        item.appendChild(flexContainer);
+        item.appendChild(badge);
+        
         // Evento para checkbox
-        const checkbox = item.querySelector('.museum-checkbox');
         checkbox.addEventListener('change', (e) => {
             e.stopPropagation();
             toggleMuseumSelection(index);
@@ -565,23 +654,67 @@ function filterMuseumsByCategory() {
         const item = document.createElement('div');
         item.className = 'museum-item';
         
-        item.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                <input type="checkbox" class="museum-checkbox" data-index="${originalIndex}" ${isSelected ? 'checked' : ''} style="cursor: pointer; width: 18px; height: 18px;">
-                <div style="flex: 1;">
-                    <div class="museum-name">${museum.nombre_oficial}</div>
-                    <div class="museum-info">
-                        <div><strong>🏷️</strong> ${museum.categoria || 'N/A'}</div>
-                        <div><strong>📍</strong> ${museum.colonia || 'N/A'}</div>
-                        <div><strong>💰</strong> ${museum.costos || 'Consultar'}</div>
-                    </div>
-                </div>
-            </div>
-            <div class="badge">#${originalIndex + 1}</div>
-        `;
-
+        // Crear estructura HTML de forma segura sin innerHTML
+        const flexContainer = document.createElement('div');
+        flexContainer.style.display = 'flex';
+        flexContainer.style.alignItems = 'center';
+        flexContainer.style.gap = '10px';
+        flexContainer.style.flex = '1';
+        
+        // Checkbox
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'museum-checkbox';
+        checkbox.setAttribute('data-index', String(originalIndex));
+        checkbox.style.cursor = 'pointer';
+        checkbox.style.width = '18px';
+        checkbox.style.height = '18px';
+        if (isSelected) checkbox.checked = true;
+        
+        // Contenedor de información
+        const infoContainer = document.createElement('div');
+        infoContainer.style.flex = '1';
+        
+        // Nombre del museo (seguro contra XSS)
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'museum-name';
+        nameDiv.textContent = museum.nombre_oficial || '';
+        
+        // Información adicional
+        const detailsDiv = document.createElement('div');
+        detailsDiv.className = 'museum-info';
+        
+        const categoryDiv = document.createElement('div');
+        categoryDiv.innerHTML = '<strong>🏷️</strong> ';
+        categoryDiv.appendChild(createSafeElement('span', museum.categoria || 'N/A'));
+        
+        const coloniaDiv = document.createElement('div');
+        coloniaDiv.innerHTML = '<strong>📍</strong> ';
+        coloniaDiv.appendChild(createSafeElement('span', museum.colonia || 'N/A'));
+        
+        const costDiv = document.createElement('div');
+        costDiv.innerHTML = '<strong>💰</strong> ';
+        costDiv.appendChild(createSafeElement('span', museum.costos || 'Consultar'));
+        
+        detailsDiv.appendChild(categoryDiv);
+        detailsDiv.appendChild(coloniaDiv);
+        detailsDiv.appendChild(costDiv);
+        
+        infoContainer.appendChild(nameDiv);
+        infoContainer.appendChild(detailsDiv);
+        
+        flexContainer.appendChild(checkbox);
+        flexContainer.appendChild(infoContainer);
+        
+        // Badge
+        const badge = document.createElement('div');
+        badge.className = 'badge';
+        badge.textContent = `#${originalIndex + 1}`;
+        
+        item.appendChild(flexContainer);
+        item.appendChild(badge);
+        
         // Evento para checkbox
-        const checkbox = item.querySelector('.museum-checkbox');
         checkbox.addEventListener('change', (e) => {
             e.stopPropagation();
             toggleMuseumSelection(originalIndex);
@@ -786,7 +919,8 @@ async function optimizeRoute() {
         setTimeout(hideProgress, 2000);
 
     } catch (error) {
-        showMessage('❌ Error al optimizar: ' + error.message, 'error');
+        console.error('Route optimization error:', error);
+        showMessage('❌ Error al optimizar la ruta. Por favor, intenta de nuevo.', 'error');
         hideProgress();
     } finally {
         document.getElementById('btnOptimizeRoute').disabled = false;
