@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Museos CDMX - Ruta Óptima</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 380px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .controls {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #2d3748;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .search-box {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #eee;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            background: #f9fafb;
+            border: none;
+            font-weight: 600;
+            font-size: 0.9em;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        /* Lista de museos */
+        .museum-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 10px;
+        }
+
+        .museum-item {
+            padding: 12px;
+            background: #f9fafb;
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .museum-item:hover {
+            background: #edf2f7;
+            transform: translateX(2px);
+        }
+
+        .museum-item.selected {
+            background: #e6efff;
+            border-left-color: #2d3748;
+        }
+
+        .museum-name {
+            font-weight: 600;
+            font-size: 0.95em;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+
+        .museum-info {
+            font-size: 0.85em;
+            color: #718096;
+            line-height: 1.4;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 3px;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+
+        /* Ruta óptima */
+        .route-info {
+            padding: 10px;
+        }
+
+        .route-step {
+            padding: 12px;
+            background: #f9fafb;
+            border-left: 4px solid #48bb78;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+
+        .step-number {
+            font-weight: 700;
+            color: #48bb78;
+            font-size: 1.2em;
+        }
+
+        .step-museum {
+            font-weight: 600;
+            color: #2d3748;
+            margin: 5px 0;
+        }
+
+        .step-details {
+            font-size: 0.85em;
+            color: #718096;
+            line-height: 1.5;
+        }
+
+        .route-summary {
+            padding: 15px;
+            background: #edf2f7;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 0.9em;
+        }
+
+        .summary-item strong {
+            color: #2d3748;
+        }
+
+        /* Mapa */
+        #map {
+            flex: 1;
+            background: #e0e0e0;
+        }
+
+        .leaflet-popup-content {
+            font-size: 0.85em;
+        }
+
+        .popup-title {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .popup-info {
+            color: #2d3748;
+            line-height: 1.5;
+        }
+
+        /* Config modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2d3748;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #2d3748;
+            font-size: 0.9em;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .btn-close {
+            background: #e2e8f0;
+            color: #2d3748;
+        }
+
+        .btn-close:hover {
+            background: #cbd5e0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+        }
+
+        .spinner {
+            border: 3px solid #edf2f7;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+
+        .message.success {
+            background: #c6f6d5;
+            color: #22543d;
+            border-left: 4px solid #48bb78;
+        }
+
+        .message.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border-left: 4px solid #f56565;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 40vh;
+            }
+
+            #map {
+                height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="header">
+                <h1>🏛️ Museos CDMX</h1>
+                <p>Planificador de visitas óptimo</p>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-primary" id="btnLoadCSV">
+                    <i class="fas fa-upload"></i> Recargar CSV
+                </button>
+                <button class="btn btn-success" id="btnOptimizeRoute" disabled>
+                    <i class="fas fa-route"></i> Optimizar Ruta
+                </button>
+                <button class="btn btn-secondary" id="btnClearRoute">
+                    <i class="fas fa-times"></i> Limpiar Ruta
+                </button>
+                <button class="btn btn-secondary" id="btnSettings">
+                    <i class="fas fa-cog"></i> Configurar
+                </button>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="searchMuseum" placeholder="🔍 Buscar museo...">
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" data-tab="museums">Museos</button>
+                <button class="tab" data-tab="route">Ruta</button>
+            </div>
+
+            <div class="tab-content">
+                <!-- Tab: Museos -->
+                <div id="museums" class="tab-pane active">
+                    <div id="museumsList" class="museum-list">
+                        <div style="padding: 20px; text-align: center; color: #718096;">
+                            <i class="fas fa-upload"></i> Carga un archivo CSV para comenzar
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Ruta -->
+                <div id="route" class="tab-pane">
+                    <div id="routeInfo" class="route-info">
+                        <div style="padding: 20px; text-align: center; color: #718096;">
+                            <i class="fas fa-route"></i> Optimiza una ruta para ver detalles
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mapa -->
+        <div id="map"></div>
+    </div>
+
+    <!-- Modal de configuración -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">⚙️ Configuración</div>
+            <div id="messageContainer"></div>
+
+            <div class="form-group">
+                <label>Punto de partida:</label>
+                <select id="startingPoint">
+                    <option value="custom">Ubicación personalizada</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Latitud inicial:</label>
+                <input type="number" id="startLat" value="19.4326" step="0.0001">
+            </div>
+
+            <div class="form-group">
+                <label>Longitud inicial:</label>
+                <input type="number" id="startLng" value="-99.1332" step="0.0001">
+            </div>
+
+            <div class="form-group">
+                <label>Tiempo promedio por museo (minutos):</label>
+                <input type="number" id="museumTimeSpent" value="90" min="30" max="300">
+            </div>
+
+            <div class="form-group">
+                <label>Modo de transporte:</label>
+                <select id="transportMode">
+                    <option value="car">Automóvil</option>
+                    <option value="driving">Conducción</option>
+                    <option value="walking">A pie</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Tiempo de descanso (minutos):</label>
+                <input type="number" id="restTime" value="15" min="0" max="120">
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-close" onclick="closeSettings()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveSettings()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input file oculto -->
+    <input type="file" id="csvFile" style="display: none;" accept=".csv">
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

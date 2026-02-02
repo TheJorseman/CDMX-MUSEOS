@@ -1,0 +1,9 @@
+[build]
+  command = ""
+  functions = ""
+  publish = "."
+
+[[redirects]]
+  from = "/*"
+  to = "/visualizador.html"
+  status = 200
