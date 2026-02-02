@@ -2,6 +2,7 @@
 
 let map;
 let museums = [];
+let selectedMuseums = new Set(); // Museos seleccionados para la ruta
 let optimizedRoute = [];
 let markers = {};
 let routeLines = [];
@@ -48,6 +49,7 @@ function setupEventListeners() {
     document.getElementById('btnOptimizeRoute').addEventListener('click', optimizeRoute);
     document.getElementById('btnClearRoute').addEventListener('click', clearRoute);
     document.getElementById('btnSettings').addEventListener('click', openSettings);
+    document.getElementById('btnAutoDownload').addEventListener('click', autoOptimizeAndDownload);
 
     // Tabs
     document.querySelectorAll('.tab').forEach(tab => {
@@ -86,23 +88,23 @@ async function loadCSVAutomatically() {
             baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
         }
 
-        // Intentar cargar el CSV automáticamente
-        const csvFiles = ['museos_cdmx_con_coordenadas.csv', 'museos_cdmx.csv'];
+        // Intentar cargar el CSV automáticamente - preferir CSV con categorías
+        const csvFiles = ['museos_cdmx_con_categorias.csv', 'museos_cdmx_con_coordenadas.csv', 'museos_cdmx.csv'];
         
         console.log('Detectado:', { isGitHubPages, isLocalhost, baseUrl });
         
         for (let csvFile of csvFiles) {
             try {
-                // Intentar con URL absoluta primero
-                let csvUrl = baseUrl + csvFile;
+                // Intentar desde raíz primero (más confiable)
+                let csvUrl = '/' + csvFile;
                 console.log(`Intentando cargar: ${csvUrl}`);
                 
                 let response = await fetch(csvUrl);
                 
-                // Si no funciona, intentar desde raíz
+                // Si no funciona desde raíz, intentar con URL base
                 if (!response.ok) {
-                    csvUrl = '/' + csvFile;
-                    console.log(`Reintentando desde raíz: ${csvUrl}`);
+                    csvUrl = baseUrl + csvFile;
+                    console.log(`Reintentando con baseUrl: ${csvUrl}`);
                     response = await fetch(csvUrl);
                 }
                 
@@ -125,7 +127,8 @@ async function loadCSVAutomatically() {
                         museums = museums.map(m => ({
                             ...m,
                             lat: parseFloat(m.latitud),
-                            lng: parseFloat(m.longitud)
+                            lng: parseFloat(m.longitud),
+                            categoria: m.categoria || 'Otro'  // Agregar categoría si existe
                         }));
                     } else {
                         // Geocodificar
@@ -133,10 +136,19 @@ async function loadCSVAutomatically() {
                         await geocodeMuseums();
                     }
 
+                    // Reiniciar selección de museos y ruta
+                    selectedMuseums.clear();
+                    optimizedRoute = [];
+                    
                     displayMuseums();
+                    buildCategoryFilters();
                     document.getElementById('btnOptimizeRoute').disabled = false;
-                    showMessage(`✓ ${museums.length} museos cargados automáticamente`, 'success');
-                    console.log('CSV cargado exitosamente:', csvUrl);
+                    document.getElementById('btnAutoDownload').disabled = false;
+                    
+                    // Mostrar cuál CSV se cargó
+                    const tipo = csvFile.includes('categorias') ? ' (con categorías)' : ' (sin categorías)';
+                    showMessage(`✓ ${museums.length} museos cargados${tipo}`, 'success');
+                    console.log('CSV cargado exitosamente:', csvUrl, 'Archivo:', csvFile);
                     return;
                 }
             } catch (error) {
@@ -172,6 +184,10 @@ function processCSVFile(file) {
 
             museums = results.data.filter(row => row.nombre_oficial);
 
+            // Reiniciar selección de museos y ruta
+            selectedMuseums.clear();
+            optimizedRoute = [];
+
             // Si el CSV tiene coordenadas, usarlas; si no, geocodificar
             if (museums[0].latitud && museums[0].longitud) {
                 museums = museums.map(m => ({
@@ -189,6 +205,7 @@ function processCSVFile(file) {
             }
 
             document.getElementById('btnOptimizeRoute').disabled = false;
+            document.getElementById('btnAutoDownload').disabled = false;
         } catch (error) {
             showMessage('Error al cargar el CSV: ' + error.message, 'error');
         }
@@ -364,20 +381,47 @@ function displayMuseums() {
     const list = document.getElementById('museumsList');
     list.innerHTML = '';
 
+    // Si es la primera vez, seleccionar todos los museos
+    if (selectedMuseums.size === 0) {
+        museums.forEach((_, index) => {
+            selectedMuseums.add(index);
+        });
+    }
+
     museums.forEach((museum, index) => {
         const item = document.createElement('div');
         item.className = 'museum-item';
+        const isSelected = selectedMuseums.has(index);
+        
         item.innerHTML = `
-            <div class="museum-name">${museum.nombre_oficial}</div>
-            <div class="museum-info">
-                <div><strong>📍</strong> ${museum.colonia || 'N/A'}</div>
-                <div><strong>💰</strong> ${museum.costos || 'Consultar'}</div>
-                <div><strong>🕐</strong> ${museum.horarios || 'No especificado'}</div>
+            <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                <input type="checkbox" class="museum-checkbox" data-index="${index}" ${isSelected ? 'checked' : ''} style="cursor: pointer; width: 18px; height: 18px;">
+                <div style="flex: 1;">
+                    <div class="museum-name">${museum.nombre_oficial}</div>
+                    <div class="museum-info">
+                        <div><strong>📍</strong> ${museum.colonia || 'N/A'}</div>
+                        <div><strong>💰</strong> ${museum.costos || 'Consultar'}</div>
+                        <div><strong>🕐</strong> ${museum.horarios || 'No especificado'}</div>
+                    </div>
+                </div>
             </div>
             <div class="badge">#${index + 1}</div>
         `;
 
-        item.addEventListener('click', () => selectMuseum(index));
+        // Evento para checkbox
+        const checkbox = item.querySelector('.museum-checkbox');
+        checkbox.addEventListener('change', (e) => {
+            e.stopPropagation();
+            toggleMuseumSelection(index);
+        });
+
+        // Evento para la tarjeta (sin checkbox)
+        item.addEventListener('click', (e) => {
+            if (e.target !== checkbox && !e.target.closest('.museum-checkbox')) {
+                selectMuseum(index);
+            }
+        });
+
         list.appendChild(item);
     });
 
@@ -415,6 +459,150 @@ function selectMuseum(index) {
     }
 }
 
+function toggleMuseumSelection(index) {
+    if (selectedMuseums.has(index)) {
+        selectedMuseums.delete(index);
+    } else {
+        selectedMuseums.add(index);
+    }
+    
+    // Actualizar checkbox en la UI
+    const checkbox = document.querySelector(`[data-index="${index}"]`);
+    if (checkbox) {
+        checkbox.checked = selectedMuseums.has(index);
+    }
+}
+
+// Construir filtros de categoría
+function buildCategoryFilters() {
+    const categorias = [...new Set(museums.map(m => m.categoria).filter(Boolean))].sort();
+    let filterContainer = document.getElementById('categoryFilters');
+    
+    if (!filterContainer) {
+        // Crear contenedor si no existe
+        const searchBox = document.querySelector('.search-box');
+        if (!searchBox) {
+            console.warn('No se encontró .search-box para crear filtros de categoría');
+            return;
+        }
+        
+        const newDiv = document.createElement('div');
+        newDiv.id = 'categoryFilters';
+        newDiv.style.padding = '10px';
+        newDiv.style.borderBottom = '1px solid #eee';
+        searchBox.parentNode.insertBefore(newDiv, searchBox.nextSibling);
+        filterContainer = newDiv;
+    }
+    
+    filterContainer.innerHTML = '<strong>🏷️ Categorías:</strong> ';
+    
+    // Botón para seleccionar/deseleccionar todas
+    const toggleBtn = document.createElement('button');
+    toggleBtn.style.marginLeft = '10px';
+    toggleBtn.style.padding = '4px 10px';
+    toggleBtn.style.fontSize = '12px';
+    toggleBtn.style.borderRadius = '4px';
+    toggleBtn.style.border = '1px solid #FF6B35';
+    toggleBtn.style.backgroundColor = '#fff';
+    toggleBtn.style.color = '#FF6B35';
+    toggleBtn.style.cursor = 'pointer';
+    toggleBtn.style.fontWeight = '600';
+    toggleBtn.textContent = 'Deseleccionar todas';
+    toggleBtn.addEventListener('click', function() {
+        const allChecked = document.querySelectorAll('#categoryFilters input:checked').length === categorias.length;
+        document.querySelectorAll('#categoryFilters input[type="checkbox"]').forEach(cb => {
+            cb.checked = !allChecked;
+        });
+        filterMuseumsByCategory();
+        toggleBtn.textContent = allChecked ? 'Seleccionar todas' : 'Deseleccionar todas';
+    });
+    filterContainer.appendChild(toggleBtn);
+    
+    // Crear contenedor para checkboxes
+    const checkboxContainer = document.createElement('div');
+    checkboxContainer.style.marginTop = '8px';
+    filterContainer.appendChild(checkboxContainer);
+    
+    categorias.forEach(categoria => {
+        const count = museums.filter(m => m.categoria === categoria).length;
+        const label = document.createElement('label');
+        label.style.marginRight = '15px';
+        label.style.cursor = 'pointer';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = categoria;
+        checkbox.checked = true;
+        checkbox.addEventListener('change', filterMuseumsByCategory);
+        
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(` ${categoria} (${count})`));
+        checkboxContainer.appendChild(label);
+    });
+}
+
+// Filtrar museos por categoría
+function filterMuseumsByCategory() {
+    const selectedCategories = Array.from(document.querySelectorAll('#categoryFilters input:checked'))
+        .map(cb => cb.value);
+    
+    const filteredMuseums = museums.filter(m => selectedCategories.includes(m.categoria));
+    
+    // Actualizar selectedMuseums para que solo contenga los museos que coinciden con el filtro actual
+    selectedMuseums.clear();
+    filteredMuseums.forEach((museum) => {
+        const originalIndex = museums.indexOf(museum);
+        selectedMuseums.add(originalIndex);
+    });
+    
+    const list = document.getElementById('museumsList');
+    list.innerHTML = '';
+
+    filteredMuseums.forEach((museum) => {
+        const originalIndex = museums.indexOf(museum);
+        const isSelected = selectedMuseums.has(originalIndex);
+        
+        const item = document.createElement('div');
+        item.className = 'museum-item';
+        
+        item.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                <input type="checkbox" class="museum-checkbox" data-index="${originalIndex}" ${isSelected ? 'checked' : ''} style="cursor: pointer; width: 18px; height: 18px;">
+                <div style="flex: 1;">
+                    <div class="museum-name">${museum.nombre_oficial}</div>
+                    <div class="museum-info">
+                        <div><strong>🏷️</strong> ${museum.categoria || 'N/A'}</div>
+                        <div><strong>📍</strong> ${museum.colonia || 'N/A'}</div>
+                        <div><strong>💰</strong> ${museum.costos || 'Consultar'}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="badge">#${originalIndex + 1}</div>
+        `;
+
+        // Evento para checkbox
+        const checkbox = item.querySelector('.museum-checkbox');
+        checkbox.addEventListener('change', (e) => {
+            e.stopPropagation();
+            toggleMuseumSelection(originalIndex);
+        });
+
+        // Evento para la tarjeta (sin checkbox)
+        item.addEventListener('click', (e) => {
+            if (e.target !== checkbox && !e.target.closest('.museum-checkbox')) {
+                selectMuseum(originalIndex);
+            }
+        });
+
+        list.appendChild(item);
+    });
+    
+    // Redibujar mapa
+    clearMapMarkers();
+    drawMuseumsOnMap();
+    drawStartingPoint();
+}
+
 function drawMuseumsOnMap() {
     museums.forEach((museum, index) => {
         if (!museum.lat || !museum.lng) return;
@@ -448,28 +636,99 @@ function drawStartingPoint() {
     // Eliminar marcador anterior
     if (startMarker) map.removeLayer(startMarker);
 
-    // Crear icono rojo personalizado
-    const redIcon = L.icon({
-        iconUrl: 'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32"%3E%3Ccircle cx="12" cy="12" r="10" fill="%23ff0000" stroke="white" stroke-width="2"/%3E%3Ctext x="12" y="15" text-anchor="middle" fill="white" font-size="12" font-weight="bold"%3E◉%3C/text%3E%3C/svg%3E',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-        popupAnchor: [0, -16]
+    // Crear icono con emoji - contrasta bien con el mapa
+    const emojiIcon = L.divIcon({
+        html: '<div style="font-size: 40px; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.4));">🎯</div>',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+        popupAnchor: [0, -20],
+        className: 'emoji-marker'
     });
 
-    startMarker = L.marker([config.startLat, config.startLng], { icon: redIcon });
-    startMarker.bindPopup('🏁 <strong>PUNTO DE INICIO</strong><br>Haz clic para la información de la ruta');
-    startMarker.addTo(map);
-
-    // Agregar círculo alrededor del marcador para mayor visibilidad
+    // Crear círculo primero
     const circle = L.circle([config.startLat, config.startLng], {
         radius: 200,
-        color: '#ff0000',
-        fill: false,
+        color: '#4285F4',
+        fill: true,
+        fillColor: '#4285F4',
+        fillOpacity: 0.1,
         weight: 2,
-        opacity: 0.5,
+        opacity: 0.6,
         dashArray: '5, 5'
     });
     circle.addTo(map);
+    
+    // Agregar animación de pulso
+    animateStartMarkerPulse(circle);
+
+    startMarker = L.marker([config.startLat, config.startLng], { 
+        icon: emojiIcon,
+        draggable: true  // Permitir arrastrar
+    });
+    
+    startMarker.bindPopup('🎯 <strong>PUNTO DE INICIO</strong><br><small>Arrastra para mover la ubicación</small>');
+    startMarker.addTo(map);
+    
+    // Eventos de arrastre
+    startMarker.on('dragstart', () => {
+        showMessage('📍 Arrastrando punto de inicio...', 'info');
+        startMarker._icon.classList.add('dragging');
+    });
+    
+    startMarker.on('drag', () => {
+        // Actualizar posición del círculo mientras se arrastra
+        const pos = startMarker.getLatLng();
+        circle.setLatLng(pos);
+    });
+    
+    startMarker.on('dragend', () => {
+        startMarker._icon.classList.remove('dragging');
+        const newPos = startMarker.getLatLng();
+        config.startLat = newPos.lat;
+        config.startLng = newPos.lng;
+        showMessage(`✅ Punto actualizado a: ${newPos.lat.toFixed(4)}, ${newPos.lng.toFixed(4)}`, 'success');
+        
+        // Actualizar la información en localStorage
+        saveConfig();
+    });
+    
+    // Permitir clic para editar coordenadas
+    startMarker.on('click', () => {
+        startMarker.openPopup();
+    });
+}
+
+// Función para animar el pulso del marcador de inicio
+function animateStartMarkerPulse(circle) {
+    let maxRadius = 300;
+    let minRadius = 200;
+    let expanding = true;
+    let animationInterval;
+    
+    const animate = () => {
+        let currentRadius = circle.getRadius();
+        let step = 2;
+        
+        if (expanding) {
+            currentRadius += step;
+            if (currentRadius >= maxRadius) {
+                expanding = false;
+            }
+        } else {
+            currentRadius -= step;
+            if (currentRadius <= minRadius) {
+                expanding = true;
+            }
+        }
+        
+        circle.setRadius(currentRadius);
+    };
+    
+    // Iniciar animación
+    animationInterval = setInterval(animate, 30);
+    
+    // Guardar ID para poder detenerla después
+    circle._animationInterval = animationInterval;
 }
 
 function clearMapMarkers() {
@@ -507,26 +766,44 @@ async function optimizeRoute() {
     }
 
     document.getElementById('btnOptimizeRoute').disabled = true;
+    
+    // Mostrar barra de progreso
+    showProgress('⏳ Iniciando optimización...', 0);
 
     try {
-        showMessage('Calculando ruta óptima... esto puede tomar un momento', 'success');
-
         // Implementar algoritmo TSP aproximado (Nearest Neighbor)
         const route = await calculateOptimalRoute();
         optimizedRoute = route;
 
         displayRoute();
         drawRouteOnMap();
-        showMessage('✓ Ruta optimizada correctamente', 'success');
+        
+        // Mostrar progreso completo
+        updateProgress(100, '✅ ¡Ruta optimizada!');
+        showMessage('✅ ¡Ruta optimizada correctamente! Incluye retorno a casa', 'success');
+        
+        // Ocultar barra después de 2 segundos
+        setTimeout(hideProgress, 2000);
 
     } catch (error) {
-        showMessage('Error al optimizar: ' + error.message, 'error');
+        showMessage('❌ Error al optimizar: ' + error.message, 'error');
+        hideProgress();
     } finally {
         document.getElementById('btnOptimizeRoute').disabled = false;
     }
 }
 
 async function calculateOptimalRoute() {
+    // Filtrar solo museos seleccionados
+    const selectedMuseumsArray = Array.from(selectedMuseums)
+        .map(index => museums[index])
+        .filter(m => m && m.lat && m.lng);
+
+    if (selectedMuseumsArray.length < 2) {
+        showMessage('Selecciona al menos 2 museos para optimizar la ruta', 'error');
+        throw new Error('Menos de 2 museos seleccionados');
+    }
+
     // Algoritmo Nearest Neighbor para TSP aproximado
     const startPoint = {
         lat: config.startLat,
@@ -535,17 +812,21 @@ async function calculateOptimalRoute() {
     };
 
     let currentPoint = startPoint;
-    let unvisited = [...museums];
+    let unvisited = [...selectedMuseumsArray];
     let route = [];
     let totalTime = 0;
     let totalDistance = 0;
+    const totalMuseums = unvisited.length;
+
+    // Mostrar estado inicial con barra
+    showProgress('⏳ Iniciando optimización...', 5);
 
     while (unvisited.length > 0) {
         let nearest = null;
         let nearestDist = Infinity;
         let nearestIdx = -1;
 
-        // Encontrar el museo más cercano
+        // Encontrar el museo más cercano (Nearest Neighbor)
         for (let i = 0; i < unvisited.length; i++) {
             const dist = calculateHaversine(currentPoint, unvisited[i]);
             if (dist < nearestDist) {
@@ -554,6 +835,12 @@ async function calculateOptimalRoute() {
                 nearestIdx = i;
             }
         }
+
+        // Mostrar progreso en barra visual
+        const visitados = totalMuseums - unvisited.length;
+        const progress = Math.round((visitados / totalMuseums) * 100);
+        const museumName = nearest.nombre_oficial.substring(0, 35);
+        updateProgress(progress, `${progress}% - Procesando: ${museumName}...`);
 
         // Obtener distancia real
         const distInfo = await getDistance(currentPoint, nearest);
@@ -577,6 +864,23 @@ async function calculateOptimalRoute() {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
 
+    // Agregar retorno a casa al final
+    updateProgress(95, '🏠 Calculando retorno a casa...');
+    const returnInfo = await getDistance(currentPoint, startPoint);
+    
+    route.push({
+        museum: { ...startPoint, nombre_oficial: '🏠 Regreso a casa' },
+        travelTime: returnInfo.duration,
+        travelDistance: returnInfo.distance,
+        visitTime: 0,
+        restTime: 0,
+        geometry: returnInfo.geometry,
+        isReturn: true  // Marcar como retorno
+    });
+
+    totalTime += returnInfo.duration;
+    totalDistance += parseFloat(returnInfo.distance);
+
     return {
         steps: route,
         totalTime,
@@ -593,6 +897,64 @@ function clearRoute() {
         </div>
     `;
     showMessage('Ruta limpiada', 'info');
+}
+
+async function autoOptimizeAndDownload() {
+    const selectedCount = selectedMuseums.size;
+    
+    if (selectedCount < 2) {
+        showMessage('Selecciona al menos 2 museos para descargar el plan', 'error');
+        return;
+    }
+
+    document.getElementById('btnAutoDownload').disabled = true;
+    
+    try {
+        // Verificar si ya existe una ruta óptima calculada con los mismos museos seleccionados
+        const routeExists = optimizedRoute && optimizedRoute.steps && optimizedRoute.steps.length > 0;
+        
+        if (routeExists) {
+            // Si la ruta ya existe, solo descargar
+            showProgress('📥 Descargando plan existente...', 50);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            downloadPDF();
+            
+            updateProgress(100, '✅ ¡Plan descargado!');
+            showMessage('✅ Plan descargado correctamente', 'success');
+            setTimeout(hideProgress, 1500);
+        } else {
+            // Si no existe, calcular y descargar
+            showProgress('⏳ Optimizando ruta para descargar...', 0);
+
+            // Calcular la ruta óptima
+            const route = await calculateOptimalRoute();
+            optimizedRoute = route;
+
+            // Mostrar progreso casi completo
+            updateProgress(95, '📊 Generando PDF...');
+
+            // Descargar el PDF automáticamente
+            await new Promise(resolve => setTimeout(resolve, 500));
+            downloadPDF();
+
+            // Mostrar progreso completo
+            updateProgress(100, '✅ ¡Plan descargado!');
+            showMessage('✅ ¡Plan óptimo descargado correctamente!', 'success');
+            
+            // Mostrar la ruta en el mapa también
+            displayRoute();
+            drawRouteOnMap();
+            
+            // Ocultar barra después de 2 segundos
+            setTimeout(hideProgress, 2000);
+        }
+
+    } catch (error) {
+        showMessage('❌ Error: ' + error.message, 'error');
+        hideProgress();
+    } finally {
+        document.getElementById('btnAutoDownload').disabled = false;
+    }
 }
 
 function displayRoute() {
@@ -614,8 +976,8 @@ function displayRoute() {
                 <span>${optimizedRoute.totalDistance} km</span>
             </div>
             <div class="summary-item">
-                <strong>🏛️ Museos:</strong>
-                <span>${optimizedRoute.steps.length}</span>
+                <strong>🏛️ Museos visitados:</strong>
+                <span>${optimizedRoute.steps.length - 1}</span> (+ retorno a casa)
             </div>
         </div>
     `;
@@ -628,37 +990,70 @@ function displayRoute() {
         const arrivalTime = new Date();
         arrivalTime.setMinutes(arrivalTime.getMinutes() + currentTime);
 
+        // Estilos diferentes para retorno a casa
+        const isReturn = step.isReturn;
+        const stepClass = isReturn ? 'route-step' : 'route-step';
+        const bgColor = isReturn ? '#fff8e1' : '#f9fafb';
+        const stepLat = isReturn ? config.startLat : museum.lat;
+        const stepLng = isReturn ? config.startLng : museum.lng;
+        const stepZoom = isReturn ? 15 : 16;
+
         html += `
-            <div class="route-step">
-                <div class="step-number">Paso ${index + 1}</div>
-                <div class="step-museum">${museum.nombre_oficial}</div>
+            <div class="route-step" 
+                 data-lat="${stepLat}" 
+                 data-lng="${stepLng}" 
+                 data-zoom="${stepZoom}"
+                 style="background: ${bgColor}; border-left-color: ${isReturn ? '#ffa500' : '#FF6B35'}; cursor: pointer; transition: all 0.2s;" 
+                 onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'; this.style.transform='translateX(4px)';" 
+                 onmouseout="this.style.boxShadow='none'; this.style.transform='translateX(0);'">
+                <div class="step-number" style="color: ${isReturn ? '#ff6b6b' : '#FF6B35'};">
+                    ${isReturn ? '🏠 Retorno a Casa' : `📍 Paso ${index + 1}`}
+                </div>
+                <div class="step-museum" style="font-weight: 600;">${museum.nombre_oficial}</div>
                 <div class="step-details">
-                    <p><strong>📍</strong> ${museum.colonia}</p>
+                    ${!isReturn ? `<p><strong>🏷️</strong> ${museum.categoria || 'N/A'}</p>` : ''}
+                    <p><strong>📍</strong> ${museum.colonia || 'N/A'}</p>
                     <p><strong>⏱️ Traslado:</strong> ${step.travelTime} min</p>
-                    <p><strong>⏰ Visita:</strong> ${step.visitTime} min</p>
-                    <p><strong>💤 Descanso:</strong> ${step.restTime} min</p>
+                    ${!isReturn ? `<p><strong>⏰ Visita:</strong> ${step.visitTime} min</p>` : ''}
+                    ${!isReturn ? `<p><strong>💤 Descanso:</strong> ${step.restTime} min</p>` : ''}
                     <p><strong>📏 Distancia:</strong> ${step.travelDistance} km</p>
                     <p><strong>🕐 Llegada aproximada:</strong> ${arrivalTime.toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}</p>
-                    <p><strong>💰 Costo:</strong> ${museum.costos || 'Consultar'}</p>
+                    ${!isReturn ? `<p><strong>💰 Costo:</strong> ${museum.costos || 'Consultar'}</p>` : ''}
+                    <p style="color: #666; font-size: 12px; margin-top: 8px;">👆 Haz clic para ir a este lugar en el mapa</p>
                 </div>
             </div>
         `;
 
-        currentTime += step.visitTime + step.restTime;
+        if (!isReturn) {
+            currentTime += step.visitTime + step.restTime;
+        }
     });
 
     html += `
-        <div style="padding: 15px; gap: 10px; display: flex; flex-direction: column;">
-            <button class="btn btn-success" style="width: 100%;" onclick="downloadItinerary()">
-                <i class="fas fa-download"></i> Descargar Plan (CSV)
-            </button>
-            <button class="btn btn-primary" style="width: 100%;" onclick="downloadPDF()">
-                <i class="fas fa-file-pdf"></i> Descargar Pasaporte (PDF)
+        <div style="position: sticky; bottom: 0; padding: 20px; gap: 12px; display: flex; flex-direction: row; background: linear-gradient(135deg, #FFE5D9, #FFF0E6); border-radius: 8px; margin-top: 15px; border: 3px solid #FF6B35; box-shadow: 0 4px 15px rgba(255, 107, 53, 0.2); z-index: 100;">
+            <button class="btn btn-success" style="flex: 1; padding: 14px; font-weight: 700; font-size: 15px; border-radius: 6px; background: linear-gradient(135deg, #10b981, #059669); border: none; cursor: pointer; transition: all 0.3s; color: white;" 
+                    onmouseover="this.style.boxShadow='0 6px 12px rgba(16, 185, 129, 0.4)'; this.style.transform='translateY(-2px)';" 
+                    onmouseout="this.style.boxShadow='none'; this.style.transform='translateY(0);'"
+                    onclick="downloadItinerary()">
+                <i class="fas fa-download" style="margin-right: 8px;"></i> Descargar Plan (CSV)
             </button>
         </div>
     `;
 
     routeInfo.innerHTML = html;
+    
+    // Agregar event listeners a los items de ruta después de crear el HTML
+    document.querySelectorAll('.route-step').forEach(item => {
+        item.addEventListener('click', function() {
+            const lat = parseFloat(this.getAttribute('data-lat'));
+            const lng = parseFloat(this.getAttribute('data-lng'));
+            const zoom = parseInt(this.getAttribute('data-zoom'));
+            if (!isNaN(lat) && !isNaN(lng)) {
+                map.setView([lat, lng], zoom);
+                document.querySelector('[data-tab="map"]').click();
+            }
+        });
+    });
 
     // Cambiar a tab de ruta
     document.querySelector('[data-tab="route"]').click();
@@ -679,15 +1074,15 @@ function drawRouteOnMap() {
     optimizedRoute.steps.forEach((step, index) => {
         const museum = step.museum;
 
-        // Dibujar línea de la ruta
+        // Dibujar línea de la ruta - MEJORADA (más visible)
         if (step.geometry) {
             try {
                 const decoded = decodePolyline(step.geometry);
                 const polyline = L.polyline(decoded, {
-                    color: '#48bb78',
-                    weight: 3,
-                    opacity: 0.8,
-                    dashArray: '5, 5'
+                    color: '#FF6B35',  // Naranja vibrante
+                    weight: 5,         // Más grueso
+                    opacity: 0.9,      // Más opaco
+                    dashArray: '8, 4'  // Guiones más grandes
                 });
                 routeGroup.addLayer(polyline);
             } catch (e) {
@@ -696,9 +1091,9 @@ function drawRouteOnMap() {
                     [currentPoint.lat, currentPoint.lng],
                     [museum.lat, museum.lng]
                 ], {
-                    color: '#48bb78',
-                    weight: 3,
-                    opacity: 0.8
+                    color: '#FF6B35',
+                    weight: 5,
+                    opacity: 0.9
                 });
                 routeGroup.addLayer(line);
             }
@@ -708,40 +1103,62 @@ function drawRouteOnMap() {
                 [currentPoint.lat, currentPoint.lng],
                 [museum.lat, museum.lng]
             ], {
-                color: '#48bb78',
-                weight: 3,
-                opacity: 0.8
+                color: '#FF6B35',
+                weight: 5,
+                opacity: 0.9
             });
             routeGroup.addLayer(line);
         }
 
-        // Agregar número de paso en el marcador
-        const stepMarker = L.circleMarker([museum.lat, museum.lng], {
-            radius: 12,
-            fillColor: '#48bb78',
-            color: '#fff',
-            weight: 3,
-            opacity: 1,
-            fillOpacity: 0.9
+        // Crear marcador con número - MEJORADO
+        const numberIcon = L.divIcon({
+            html: `
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 40px;
+                    height: 40px;
+                    background: linear-gradient(135deg, #FF6B35, #F7931E);
+                    border-radius: 50%;
+                    color: white;
+                    font-weight: bold;
+                    font-size: 18px;
+                    border: 3px solid white;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    cursor: pointer;
+                    transition: transform 0.2s;
+                ">
+                    ${index + 1}
+                </div>
+            `,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+            popupAnchor: [0, -20],
+            className: 'route-step-marker'
         });
 
-        const label = L.tooltip({
-            permanent: true,
-            direction: 'center',
-            className: 'step-label'
-        });
-        label.setContent(`<strong style="color: white; font-size: 14px;">${index + 1}</strong>`);
-        stepMarker.bindTooltip(label);
+        const stepMarker = L.marker([museum.lat, museum.lng], { icon: numberIcon });
         
         stepMarker.bindPopup(`
             <div class="popup-title">Paso ${index + 1}</div>
             <div class="popup-info">
                 <p><strong>${museum.nombre_oficial}</strong></p>
-                <p>Traslado: ${step.travelTime} min</p>
-                <p>Visita: ${step.visitTime} min</p>
-                <p>Distancia: ${step.travelDistance} km</p>
+                ${museum.categoria ? `<p>📌 Categoría: ${museum.categoria}</p>` : ''}
+                <p>⏱️ Traslado: ${step.travelTime} min</p>
+                <p>⏰ Visita: ${step.visitTime} min</p>
+                <p>📏 Distancia: ${step.travelDistance} km</p>
+                ${museum.costos ? `<p>💰 Costo: ${museum.costos}</p>` : ''}
             </div>
-        `);
+        `, {
+            maxWidth: 300
+        });
+
+        // Añadir evento de click para centrar el mapa
+        stepMarker.on('click', () => {
+            map.setView([museum.lat, museum.lng], 16);
+            stepMarker.openPopup();
+        });
 
         routeGroup.addLayer(stepMarker);
 
@@ -827,6 +1244,11 @@ function loadConfig() {
     }
 }
 
+// Función para guardar configuración
+function saveConfig() {
+    localStorage.setItem('museosConfig', JSON.stringify(config));
+}
+
 function loadConfigToForm() {
     document.getElementById('startLat').value = config.startLat;
     document.getElementById('startLng').value = config.startLng;
@@ -866,6 +1288,38 @@ function showMessage(text, type = 'info') {
     }, 5000);
 }
 
+// Funciones para la barra de progreso visual
+function showProgress(text, percent = 0) {
+    const container = document.getElementById('progressContainer');
+    if (!container) return; // Si no existe el contenedor, ignorar
+    
+    const progressText = document.getElementById('progressText');
+    const progressBar = document.getElementById('progressBar');
+    
+    if (container && progressText && progressBar) {
+        container.style.display = 'block';
+        progressText.textContent = text;
+        progressBar.style.width = percent + '%';
+    }
+}
+
+function updateProgress(percent, text) {
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    
+    if (progressBar && progressText) {
+        progressBar.style.width = percent + '%';
+        if (text) progressText.textContent = text;
+    }
+}
+
+function hideProgress() {
+    const container = document.getElementById('progressContainer');
+    if (container) {
+        container.style.display = 'none';
+    }
+}
+
 function createMessageContainer() {
     const container = document.createElement('div');
     container.id = 'messageContainer';
@@ -876,6 +1330,103 @@ function createMessageContainer() {
 
 // Función para descargar PDF
 function downloadPDF() {
-    showMessage('Abriendo generador de pasaporte...', 'info');
-    window.open('generar_pdf.html', '_blank');
+    if (!optimizedRoute.steps) {
+        showMessage('No hay ruta optimizada para descargar', 'error');
+        return;
+    }
+
+    // Crear contenido HTML para el PDF (sin DOCTYPE ni estructura HTML completa)
+    let htmlContent = `
+        <div style="font-family: 'Arial', sans-serif; color: #333;">
+            <div style="text-align: center; border-bottom: 3px solid #FF6B35; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="color: #FF6B35; font-size: 28px; margin: 0;">🗺️ Plan de Visita a Museos CDMX</h1>
+                <p style="color: #666; margin: 5px 0 0 0;">Ruta Optimizada para Tu Recorrido</p>
+            </div>
+
+            <div style="background: #fff8e1; padding: 15px; border-left: 4px solid #FF6B35; margin-bottom: 30px; border-radius: 4px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 600;">
+                    <span>📊 Total de Museos:</span>
+                    <span>${optimizedRoute.steps.length - 1} (+ retorno a casa)</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 600;">
+                    <span>⏱️ Tiempo Total:</span>
+                    <span>${formatTime(optimizedRoute.totalTime)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 600;">
+                    <span>📏 Distancia Total:</span>
+                    <span>${optimizedRoute.totalDistance.toFixed(2)} km</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0; font-weight: 600;">
+                    <span>📍 Punto de Inicio:</span>
+                    <span>🏠 Tu Hogar</span>
+                </div>
+            </div>
+    `;
+
+    let currentTime = 0;
+
+    // Agregar cada paso
+    optimizedRoute.steps.forEach((step, index) => {
+        const museum = step.museum;
+        currentTime += step.travelTime;
+        const arrivalTime = new Date();
+        arrivalTime.setMinutes(arrivalTime.getMinutes() + currentTime);
+
+        const isReturn = step.isReturn;
+        const borderColor = isReturn ? '#ffa500' : '#FF6B35';
+        const bgColor = isReturn ? '#fff8e1' : '#f9fafb';
+
+        htmlContent += `
+            <div style="background: ${bgColor}; padding: 20px; margin-bottom: 15px; border-left: 5px solid ${borderColor}; border-radius: 4px;">
+                <div style="background: linear-gradient(135deg, ${isReturn ? '#ffa500' : '#FF6B35'}, ${isReturn ? '#ff8c00' : '#F7931E'}); color: white; padding: 8px 12px; border-radius: 4px; display: inline-block; font-weight: 700; margin-bottom: 10px; font-size: 18px;">
+                    ${isReturn ? '🏠' : index + 1}
+                </div>
+                <div style="font-size: 18px; font-weight: 700; color: #333; margin-bottom: 10px;">${isReturn ? 'Retorno a Casa' : museum.nombre_oficial}</div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+                    ${!isReturn ? `<div style="margin-bottom: 5px;"><strong style="color: #FF6B35;">📌 Categoría:</strong> ${museum.categoria || 'N/A'}</div>` : ''}
+                    <div style="margin-bottom: 5px;"><strong style="color: #FF6B35;">📍 Ubicación:</strong> ${museum.colonia || 'N/A'}</div>
+                    
+                    ${!isReturn ? `<div style="margin-bottom: 5px;"><strong style="color: #FF6B35;">💰 Costo:</strong> ${museum.costos || 'Consultar'}</div>` : ''}
+                    <div style="margin-bottom: 5px;"><strong style="color: #FF6B35;">⏱️ Traslado:</strong> ${step.travelTime} min</div>
+                    
+                    ${!isReturn ? `<div style="margin-bottom: 5px;"><strong style="color: #FF6B35;">⏰ Visita:</strong> ${step.visitTime} min</div>` : ''}
+                    ${!isReturn ? `<div style="margin-bottom: 5px;"><strong style="color: #FF6B35;">💤 Descanso:</strong> ${step.restTime} min</div>` : ''}
+                    
+                    <div style="margin-bottom: 5px;"><strong style="color: #FF6B35;">📏 Distancia:</strong> ${step.travelDistance} km</div>
+                    <div style="margin-bottom: 5px;"><strong style="color: #FF6B35;">🕐 Llegada:</strong> ${arrivalTime.toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}</div>
+                    
+                    ${!isReturn && museum.horarios ? `<div style="margin-bottom: 5px; grid-column: 1/3;"><strong style="color: #FF6B35;">🕒 Horarios:</strong> ${museum.horarios}</div>` : ''}
+                </div>
+            </div>
+        `;
+
+        if (!isReturn) {
+            currentTime += step.visitTime + step.restTime;
+        }
+    });
+
+    htmlContent += `
+            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 12px; color: #666;">
+                <p>✨ Este plan fue optimizado automáticamente para minimizar tiempo de traslado</p>
+                <p>Generado el ${new Date().toLocaleDateString('es-MX')} - Museos CDMX Explorer</p>
+            </div>
+        </div>
+    `;
+
+    // Usar html2pdf para generar el PDF
+    const opt = {
+        margin: 10,
+        filename: 'plan_visita_museos_cdmx.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { 
+            orientation: 'portrait', 
+            unit: 'mm', 
+            format: 'a4'
+        }
+    };
+
+    html2pdf().set(opt).from(htmlContent).save();
+    showMessage('✓ Plan descargado como PDF', 'success');
 }

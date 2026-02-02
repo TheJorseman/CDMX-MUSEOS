@@ -1,0 +1,240 @@
+/* ===== ANIMACIONES Y EFECTOS ===== */
+
+/* Pulso de carga */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes bounceIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+/* Clases de animación reutilizables */
+.loading {
+    animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.spinning {
+    animation: spin 2s linear infinite;
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.bounce-in {
+    animation: bounceIn 0.4s ease-out;
+}
+
+/* Barra de progreso con shimmer */
+.progress-bar {
+    position: relative;
+    height: 6px;
+    background-color: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        #4285F4 0%,
+        #34A853 25%,
+        #FBBC04 50%,
+        #EA4335 75%,
+        #4285F4 100%
+    );
+    background-size: 200% 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    animation: shimmer 2s infinite;
+}
+
+.progress-text {
+    font-size: 12px;
+    color: #718096;
+    text-align: center;
+    margin-top: 5px;
+    font-weight: 500;
+}
+
+/* Animación del marcador */
+.marker-pulse {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Toast messages con animación */
+.toast-message {
+    animation: slideIn 0.3s ease-out;
+}
+
+.toast-message.success {
+    background-color: #c6f6d5;
+    border-left: 4px solid #22863a;
+}
+
+.toast-message.error {
+    background-color: #fed7d7;
+    border-left: 4px solid #cb2431;
+}
+
+.toast-message.info {
+    background-color: #e2f0ff;
+    border-left: 4px solid #0366d6;
+}
+
+/* Botón con efecto hover */
+.btn-with-animation {
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-with-animation:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-with-animation:active {
+    transform: translateY(0);
+}
+
+.btn-with-animation:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Efecto ripple al hacer clic */
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.6);
+    transform: scale(0);
+    animation: ripple-animation 0.6s ease-out;
+    pointer-events: none;
+}
+
+@keyframes ripple-animation {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+/* Card animada */
+.card-animated {
+    animation: bounceIn 0.5s ease-out;
+    transition: all 0.3s ease;
+}
+
+.card-animated:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Loading spinner */
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 3px solid rgba(66, 133, 244, 0.2);
+    border-radius: 50%;
+    border-top-color: #4285F4;
+    animation: spin 1s ease-in-out infinite;
+}
+
+/* Transición suave para números */
+.number-transition {
+    transition: all 0.2s ease;
+}
+
+/* Animación de marcador pulsante */
+.pulsing-marker {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Efecto fade para elementos que desaparecen */
+.fade-out {
+    animation: fadeOut 0.3s ease-out forwards;
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+/* Animación para rutas que se dibujan */
+.route-draw {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: draw 3s ease-in-out forwards;
+}
+
+@keyframes draw {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
