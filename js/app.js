@@ -43,6 +43,33 @@ function validateURL(url) {
     }
 }
 
+/**
+ * Valida que una coordenada sea válida
+ */
+function isValidCoordinate(lat, lng) {
+    try {
+        const latNum = parseFloat(lat);
+        const lngNum = parseFloat(lng);
+        
+        // Validar que no sean NaN o Infinity
+        if (!isFinite(latNum) || !isFinite(lngNum)) {
+            return false;
+        }
+        
+        // Validar rangos
+        if (latNum < -90 || latNum > 90) {
+            return false;
+        }
+        if (lngNum < -180 || lngNum > 180) {
+            return false;
+        }
+        
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 // ===== APLICACIÓN PRINCIPAL =====
 
 let map;
@@ -169,12 +196,31 @@ async function loadCSVAutomatically() {
 
                     // Si el CSV tiene coordenadas, usarlas
                     if (museums[0] && museums[0].latitud && museums[0].longitud) {
-                        museums = museums.map(m => ({
-                            ...m,
-                            lat: parseFloat(m.latitud),
-                            lng: parseFloat(m.longitud),
-                            categoria: m.categoria || 'Otro'  // Agregar categoría si existe
-                        }));
+                        museums = museums.map(m => {
+                            const lat = parseFloat(m.latitud);
+                            const lng = parseFloat(m.longitud);
+                            
+                            if (!isValidCoordinate(lat, lng)) {
+                                console.warn(`Coordenadas inválidas para ${m.nombre_oficial}: lat=${lat}, lng=${lng}`);
+                                return {
+                                    ...m,
+                                    lat: 19.4326,
+                                    lng: -99.1332,
+                                    categoria: m.categoria || 'Otro',
+                                    _invalid: true
+                                };
+                            }
+                            
+                            return {
+                                ...m,
+                                lat: lat,
+                                lng: lng,
+                                categoria: m.categoria || 'Otro'
+                            };
+                        });
+                        
+                        // Filtrar museos con coordenadas inválidas
+                        museums = museums.filter(m => !m._invalid);
                     } else {
                         // Geocodificar
                         showMessage(`Geocodificando ${museums.length} museos... esto puede tomar unos minutos`, 'info');
@@ -206,7 +252,7 @@ async function loadCSVAutomatically() {
         showMessage('📁 No se encontró CSV. Carga uno manualmente o verifica que esté en la raíz del proyecto.', 'info');
     } catch (error) {
         console.error('Error en carga automática:', error);
-        showMessage('Error al cargar automáticamente. Intenta cargar manualmente.', 'error');
+        showMessage('❌ Error al cargar automáticamente. Intenta cargar manualmente.', 'error');
     }
 }
 
@@ -235,11 +281,27 @@ function processCSVFile(file) {
 
             // Si el CSV tiene coordenadas, usarlas; si no, geocodificar
             if (museums[0].latitud && museums[0].longitud) {
-                museums = museums.map(m => ({
-                    ...m,
-                    lat: parseFloat(m.latitud),
-                    lng: parseFloat(m.longitud)
-                }));
+                museums = museums.map(m => {
+                    const lat = parseFloat(m.latitud);
+                    const lng = parseFloat(m.longitud);
+                    
+                    if (!isValidCoordinate(lat, lng)) {
+                        return {
+                            ...m,
+                            lat: 19.4326,
+                            lng: -99.1332,
+                            _invalid: true
+                        };
+                    }
+                    
+                    return {
+                        ...m,
+                        lat: lat,
+                        lng: lng
+                    };
+                });
+                
+                museums = museums.filter(m => !m._invalid);
                 displayMuseums();
                 showMessage(`✓ ${museums.length} museos cargados desde CSV`, 'success');
             } else {
@@ -252,7 +314,8 @@ function processCSVFile(file) {
             document.getElementById('btnOptimizeRoute').disabled = false;
             document.getElementById('btnAutoDownload').disabled = false;
         } catch (error) {
-            showMessage('Error al cargar el CSV: ' + error.message, 'error');
+            console.error('CSV loading error:', error);
+            showMessage('❌ Error al cargar el CSV. Por favor intenta de nuevo.', 'error');
         }
     };
     reader.readAsText(file);
@@ -282,11 +345,27 @@ document.getElementById('csvFile').addEventListener('change', function(e) {
 
             // Si el CSV tiene coordenadas, usarlas; si no, geocodificar
             if (museums[0].latitud && museums[0].longitud) {
-                museums = museums.map(m => ({
-                    ...m,
-                    lat: parseFloat(m.latitud),
-                    lng: parseFloat(m.longitud)
-                }));
+                museums = museums.map(m => {
+                    const lat = parseFloat(m.latitud);
+                    const lng = parseFloat(m.longitud);
+                    
+                    if (!isValidCoordinate(lat, lng)) {
+                        return {
+                            ...m,
+                            lat: 19.4326,
+                            lng: -99.1332,
+                            _invalid: true
+                        };
+                    }
+                    
+                    return {
+                        ...m,
+                        lat: lat,
+                        lng: lng
+                    };
+                });
+                
+                museums = museums.filter(m => !m._invalid);
                 displayMuseums();
             } else {
                 showMessage('El CSV no tiene coordenadas. Geocodificando...', 'success');
@@ -295,7 +374,8 @@ document.getElementById('csvFile').addEventListener('change', function(e) {
 
             document.getElementById('btnOptimizeRoute').disabled = false;
         } catch (error) {
-            showMessage('Error al cargar el CSV: ' + error.message, 'error');
+            console.error('CSV loading error:', error);
+            showMessage('❌ Error al cargar el CSV. Por favor intenta de nuevo.', 'error');
         }
     };
     reader.readAsText(file);
@@ -532,18 +612,10 @@ function selectMuseum(index) {
     if (museum.lat && museum.lng) {
         map.setView([museum.lat, museum.lng], 15);
 
-        // Mostrar popup
+        // Mostrar popup de forma segura
         const popup = L.popup()
             .setLatLng([museum.lat, museum.lng])
-            .setContent(`
-                <div class="popup-title">${museum.nombre_oficial}</div>
-                <div class="popup-info">
-                    <p><strong>Dirección:</strong> ${museum.calle || 'N/A'}</p>
-                    <p><strong>Colonia:</strong> ${museum.colonia || 'N/A'}</p>
-                    <p><strong>Costo:</strong> ${museum.costos || 'Consultar'}</p>
-                    <p><strong>Horarios:</strong> ${museum.horarios || 'Consultar'}</p>
-                </div>
-            `)
+            .setContent(createSafeMuseumDetailPopup(museum))
             .openOn(map);
     }
 }
@@ -736,6 +808,96 @@ function filterMuseumsByCategory() {
     drawStartingPoint();
 }
 
+/**
+ * Crea popup seguro para museo en el mapa
+ */
+function createSafeMuseumPopup(museum) {
+    const popupContent = document.createElement('div');
+    
+    // Título
+    const title = document.createElement('div');
+    title.className = 'popup-title';
+    title.textContent = museum.nombre_oficial;
+    popupContent.appendChild(title);
+    
+    // Info
+    const info = document.createElement('div');
+    info.className = 'popup-info';
+    
+    // Colonia
+    const coloniaP = document.createElement('p');
+    coloniaP.innerHTML = '<strong>📍</strong> ';
+    coloniaP.appendChild(createSafeElement('span', museum.colonia || 'N/A'));
+    info.appendChild(coloniaP);
+    
+    // Costos
+    const costosP = document.createElement('p');
+    costosP.innerHTML = '<strong>💰</strong> ';
+    costosP.appendChild(createSafeElement('span', museum.costos || 'Consultar'));
+    info.appendChild(costosP);
+    
+    // Horarios
+    const horariosP = document.createElement('p');
+    horariosP.innerHTML = '<strong>🕐</strong> ';
+    horariosP.appendChild(createSafeElement('span', museum.horarios || 'Consultar'));
+    info.appendChild(horariosP);
+    
+    popupContent.appendChild(info);
+    return popupContent;
+}
+
+/**
+ * Crea popup seguro para detalles de museo
+ */
+function createSafeMuseumDetailPopup(museum) {
+    const popupContent = document.createElement('div');
+    
+    // Título
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'popup-title';
+    titleDiv.textContent = museum.nombre_oficial;
+    popupContent.appendChild(titleDiv);
+    
+    // Info
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'popup-info';
+    
+    // Dirección
+    if (museum.calle) {
+        const dirP = document.createElement('p');
+        dirP.innerHTML = '<strong>Dirección:</strong> ';
+        dirP.appendChild(createSafeElement('span', museum.calle));
+        infoDiv.appendChild(dirP);
+    }
+    
+    // Colonia
+    if (museum.colonia) {
+        const colP = document.createElement('p');
+        colP.innerHTML = '<strong>Colonia:</strong> ';
+        colP.appendChild(createSafeElement('span', museum.colonia));
+        infoDiv.appendChild(colP);
+    }
+    
+    // Costo
+    if (museum.costos) {
+        const costP = document.createElement('p');
+        costP.innerHTML = '<strong>Costo:</strong> ';
+        costP.appendChild(createSafeElement('span', museum.costos));
+        infoDiv.appendChild(costP);
+    }
+    
+    // Horarios
+    if (museum.horarios) {
+        const horP = document.createElement('p');
+        horP.innerHTML = '<strong>Horarios:</strong> ';
+        horP.appendChild(createSafeElement('span', museum.horarios));
+        infoDiv.appendChild(horP);
+    }
+    
+    popupContent.appendChild(infoDiv);
+    return popupContent;
+}
+
 function drawMuseumsOnMap() {
     museums.forEach((museum, index) => {
         if (!museum.lat || !museum.lng) return;
@@ -749,14 +911,8 @@ function drawMuseumsOnMap() {
             fillOpacity: 0.8
         });
 
-        const popupContent = `
-            <div class="popup-title">${museum.nombre_oficial}</div>
-            <div class="popup-info">
-                <p><strong>📍</strong> ${museum.colonia || 'N/A'}</p>
-                <p><strong>💰</strong> ${museum.costos || 'Consultar'}</p>
-                <p><strong>🕐</strong> ${museum.horarios || 'Consultar'}</p>
-            </div>
-        `;
+        // Crear popup de forma segura
+        const popupContent = createSafeMuseumPopup(museum);
 
         marker.bindPopup(popupContent);
         marker.on('click', () => selectMuseum(index));
@@ -1084,104 +1240,257 @@ async function autoOptimizeAndDownload() {
         }
 
     } catch (error) {
-        showMessage('❌ Error: ' + error.message, 'error');
+        console.error('Download error:', error);
+        showMessage('❌ Error: No se pudo generar el plan. Intenta de nuevo.', 'error');
         hideProgress();
     } finally {
         document.getElementById('btnAutoDownload').disabled = false;
     }
 }
 
+/**
+ * Crea un elemento de paso de ruta de forma segura
+ */
+function createSafeRouteStepElement(step, index, isReturn, currentTime) {
+    const museum = step.museum;
+    const arrivalTime = new Date();
+    arrivalTime.setMinutes(arrivalTime.getMinutes() + currentTime);
+    
+    const stepDiv = document.createElement('div');
+    stepDiv.className = 'route-step';
+    
+    const bgColor = isReturn ? '#fff8e1' : '#f9fafb';
+    const borderColor = isReturn ? '#ffa500' : '#FF6B35';
+    const stepLat = isReturn ? config.startLat : museum.lat;
+    const stepLng = isReturn ? config.startLng : museum.lng;
+    const stepZoom = isReturn ? 15 : 16;
+    
+    // Dataset
+    stepDiv.dataset.lat = stepLat;
+    stepDiv.dataset.lng = stepLng;
+    stepDiv.dataset.zoom = stepZoom;
+    
+    // Estilos
+    stepDiv.style.background = bgColor;
+    stepDiv.style.borderLeftColor = borderColor;
+    stepDiv.style.cursor = 'pointer';
+    stepDiv.style.transition = 'all 0.2s';
+    stepDiv.style.padding = '12px';
+    stepDiv.style.marginBottom = '10px';
+    stepDiv.style.borderRadius = '5px';
+    stepDiv.style.borderLeft = '4px solid ' + borderColor;
+    
+    // Event listeners en lugar de inline handlers
+    stepDiv.addEventListener('mouseover', function() {
+        this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+        this.style.transform = 'translateX(4px)';
+    });
+    
+    stepDiv.addEventListener('mouseout', function() {
+        this.style.boxShadow = 'none';
+        this.style.transform = 'translateX(0)';
+    });
+    
+    // Step number
+    const numberDiv = document.createElement('div');
+    numberDiv.className = 'step-number';
+    numberDiv.style.color = isReturn ? '#ff6b6b' : '#FF6B35';
+    numberDiv.textContent = isReturn ? '🏠 Retorno a Casa' : `📍 Paso ${index + 1}`;
+    stepDiv.appendChild(numberDiv);
+    
+    // Museum name
+    const museumDiv = document.createElement('div');
+    museumDiv.className = 'step-museum';
+    museumDiv.style.fontWeight = '600';
+    museumDiv.textContent = museum.nombre_oficial;
+    stepDiv.appendChild(museumDiv);
+    
+    // Details
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'step-details';
+    
+    if (!isReturn && museum.categoria) {
+        const catP = document.createElement('p');
+        catP.innerHTML = '<strong>🏷️</strong> ';
+        catP.appendChild(createSafeElement('span', museum.categoria));
+        detailsDiv.appendChild(catP);
+    }
+    
+    if (museum.colonia) {
+        const colP = document.createElement('p');
+        colP.innerHTML = '<strong>📍</strong> ';
+        colP.appendChild(createSafeElement('span', museum.colonia));
+        detailsDiv.appendChild(colP);
+    }
+    
+    // Traslado
+    const trasladoP = document.createElement('p');
+    trasladoP.innerHTML = '<strong>⏱️ Traslado:</strong> ';
+    trasladoP.appendChild(createSafeElement('span', step.travelTime + ' min'));
+    detailsDiv.appendChild(trasladoP);
+    
+    if (!isReturn) {
+        const visitaP = document.createElement('p');
+        visitaP.innerHTML = '<strong>⏰ Visita:</strong> ';
+        visitaP.appendChild(createSafeElement('span', step.visitTime + ' min'));
+        detailsDiv.appendChild(visitaP);
+        
+        const descansoP = document.createElement('p');
+        descansoP.innerHTML = '<strong>💤 Descanso:</strong> ';
+        descansoP.appendChild(createSafeElement('span', step.restTime + ' min'));
+        detailsDiv.appendChild(descansoP);
+    }
+    
+    // Distancia
+    const distP = document.createElement('p');
+    distP.innerHTML = '<strong>📏 Distancia:</strong> ';
+    distP.appendChild(createSafeElement('span', step.travelDistance + ' km'));
+    detailsDiv.appendChild(distP);
+    
+    // Llegada
+    const llegadaP = document.createElement('p');
+    llegadaP.innerHTML = '<strong>🕐 Llegada aproximada:</strong> ';
+    llegadaP.appendChild(createSafeElement('span', arrivalTime.toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})));
+    detailsDiv.appendChild(llegadaP);
+    
+    if (!isReturn && museum.costos) {
+        const costoP = document.createElement('p');
+        costoP.innerHTML = '<strong>💰 Costo:</strong> ';
+        costoP.appendChild(createSafeElement('span', museum.costos));
+        detailsDiv.appendChild(costoP);
+    }
+    
+    // Hint
+    const hintP = document.createElement('p');
+    hintP.style.color = '#666';
+    hintP.style.fontSize = '12px';
+    hintP.style.marginTop = '8px';
+    hintP.textContent = '👆 Haz clic para ir a este lugar en el mapa';
+    detailsDiv.appendChild(hintP);
+    
+    stepDiv.appendChild(detailsDiv);
+    return stepDiv;
+}
+
 function displayRoute() {
     const routeInfo = document.getElementById('routeInfo');
     
     if (!optimizedRoute.steps) {
-        routeInfo.innerHTML = '<div style="padding: 20px; text-align: center;">No hay ruta</div>';
+        routeInfo.innerHTML = '';
+        const noRouteDiv = document.createElement('div');
+        noRouteDiv.style.padding = '20px';
+        noRouteDiv.style.textAlign = 'center';
+        noRouteDiv.textContent = 'No hay ruta';
+        routeInfo.appendChild(noRouteDiv);
         return;
     }
 
-    let html = `
-        <div class="route-summary">
-            <div class="summary-item">
-                <strong>⏱️ Tiempo total:</strong>
-                <span>${formatTime(optimizedRoute.totalTime)}</span>
-            </div>
-            <div class="summary-item">
-                <strong>📏 Distancia total:</strong>
-                <span>${optimizedRoute.totalDistance} km</span>
-            </div>
-            <div class="summary-item">
-                <strong>🏛️ Museos visitados:</strong>
-                <span>${optimizedRoute.steps.length - 1}</span> (+ retorno a casa)
-            </div>
-        </div>
-    `;
-
+    // Limpiar DOM
+    routeInfo.innerHTML = '';
+    
+    // Crear resumen
+    const summary = document.createElement('div');
+    summary.className = 'route-summary';
+    summary.style.padding = '15px';
+    summary.style.backgroundColor = '#edf2f7';
+    summary.style.borderRadius = '5px';
+    summary.style.marginBottom = '15px';
+    summary.style.borderLeft = '4px solid #667eea';
+    
+    const timeItem = document.createElement('div');
+    timeItem.className = 'summary-item';
+    timeItem.style.display = 'flex';
+    timeItem.style.justifyContent = 'space-between';
+    timeItem.style.padding = '5px 0';
+    timeItem.innerHTML = '<strong>⏱️ Tiempo total:</strong> ';
+    timeItem.appendChild(createSafeElement('span', formatTime(optimizedRoute.totalTime)));
+    summary.appendChild(timeItem);
+    
+    const distItem = document.createElement('div');
+    distItem.className = 'summary-item';
+    distItem.style.display = 'flex';
+    distItem.style.justifyContent = 'space-between';
+    distItem.style.padding = '5px 0';
+    distItem.innerHTML = '<strong>📏 Distancia total:</strong> ';
+    distItem.appendChild(createSafeElement('span', optimizedRoute.totalDistance + ' km'));
+    summary.appendChild(distItem);
+    
+    const museosItem = document.createElement('div');
+    museosItem.className = 'summary-item';
+    museosItem.style.display = 'flex';
+    museosItem.style.justifyContent = 'space-between';
+    museosItem.style.padding = '5px 0';
+    museosItem.innerHTML = '<strong>🏛️ Museos visitados:</strong> ';
+    museosItem.appendChild(createSafeElement('span', (optimizedRoute.steps.length - 1) + ' (+ retorno a casa)'));
+    summary.appendChild(museosItem);
+    
+    routeInfo.appendChild(summary);
+    
+    // Agregar steps
     let currentTime = 0;
-
     optimizedRoute.steps.forEach((step, index) => {
-        const museum = step.museum;
         currentTime += step.travelTime;
-        const arrivalTime = new Date();
-        arrivalTime.setMinutes(arrivalTime.getMinutes() + currentTime);
-
-        // Estilos diferentes para retorno a casa
         const isReturn = step.isReturn;
-        const stepClass = isReturn ? 'route-step' : 'route-step';
-        const bgColor = isReturn ? '#fff8e1' : '#f9fafb';
-        const stepLat = isReturn ? config.startLat : museum.lat;
-        const stepLng = isReturn ? config.startLng : museum.lng;
-        const stepZoom = isReturn ? 15 : 16;
-
-        html += `
-            <div class="route-step" 
-                 data-lat="${stepLat}" 
-                 data-lng="${stepLng}" 
-                 data-zoom="${stepZoom}"
-                 style="background: ${bgColor}; border-left-color: ${isReturn ? '#ffa500' : '#FF6B35'}; cursor: pointer; transition: all 0.2s;" 
-                 onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'; this.style.transform='translateX(4px)';" 
-                 onmouseout="this.style.boxShadow='none'; this.style.transform='translateX(0);'">
-                <div class="step-number" style="color: ${isReturn ? '#ff6b6b' : '#FF6B35'};">
-                    ${isReturn ? '🏠 Retorno a Casa' : `📍 Paso ${index + 1}`}
-                </div>
-                <div class="step-museum" style="font-weight: 600;">${museum.nombre_oficial}</div>
-                <div class="step-details">
-                    ${!isReturn ? `<p><strong>🏷️</strong> ${museum.categoria || 'N/A'}</p>` : ''}
-                    <p><strong>📍</strong> ${museum.colonia || 'N/A'}</p>
-                    <p><strong>⏱️ Traslado:</strong> ${step.travelTime} min</p>
-                    ${!isReturn ? `<p><strong>⏰ Visita:</strong> ${step.visitTime} min</p>` : ''}
-                    ${!isReturn ? `<p><strong>💤 Descanso:</strong> ${step.restTime} min</p>` : ''}
-                    <p><strong>📏 Distancia:</strong> ${step.travelDistance} km</p>
-                    <p><strong>🕐 Llegada aproximada:</strong> ${arrivalTime.toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}</p>
-                    ${!isReturn ? `<p><strong>💰 Costo:</strong> ${museum.costos || 'Consultar'}</p>` : ''}
-                    <p style="color: #666; font-size: 12px; margin-top: 8px;">👆 Haz clic para ir a este lugar en el mapa</p>
-                </div>
-            </div>
-        `;
-
+        
+        const stepElement = createSafeRouteStepElement(step, index, isReturn, currentTime);
+        routeInfo.appendChild(stepElement);
+        
         if (!isReturn) {
             currentTime += step.visitTime + step.restTime;
         }
     });
-
-    html += `
-        <div style="position: sticky; bottom: 0; padding: 20px; gap: 12px; display: flex; flex-direction: row; background: linear-gradient(135deg, #FFE5D9, #FFF0E6); border-radius: 8px; margin-top: 15px; border: 3px solid #FF6B35; box-shadow: 0 4px 15px rgba(255, 107, 53, 0.2); z-index: 100;">
-            <button class="btn btn-success" style="flex: 1; padding: 14px; font-weight: 700; font-size: 15px; border-radius: 6px; background: linear-gradient(135deg, #10b981, #059669); border: none; cursor: pointer; transition: all 0.3s; color: white;" 
-                    onmouseover="this.style.boxShadow='0 6px 12px rgba(16, 185, 129, 0.4)'; this.style.transform='translateY(-2px)';" 
-                    onmouseout="this.style.boxShadow='none'; this.style.transform='translateY(0);'"
-                    onclick="downloadItinerary()">
-                <i class="fas fa-download" style="margin-right: 8px;"></i> Descargar Plan (CSV)
-            </button>
-        </div>
-    `;
-
-    routeInfo.innerHTML = html;
     
-    // Agregar event listeners a los items de ruta después de crear el HTML
+    // Agregar botón de descarga
+    const downloadContainer = document.createElement('div');
+    downloadContainer.style.position = 'sticky';
+    downloadContainer.style.bottom = '0';
+    downloadContainer.style.padding = '20px';
+    downloadContainer.style.gap = '12px';
+    downloadContainer.style.display = 'flex';
+    downloadContainer.style.flexDirection = 'row';
+    downloadContainer.style.background = 'linear-gradient(135deg, #FFE5D9, #FFF0E6)';
+    downloadContainer.style.borderRadius = '8px';
+    downloadContainer.style.marginTop = '15px';
+    downloadContainer.style.border = '3px solid #FF6B35';
+    downloadContainer.style.boxShadow = '0 4px 15px rgba(255, 107, 53, 0.2)';
+    downloadContainer.style.zIndex = '100';
+    
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'btn btn-success';
+    downloadBtn.style.flex = '1';
+    downloadBtn.style.padding = '14px';
+    downloadBtn.style.fontWeight = '700';
+    downloadBtn.style.fontSize = '15px';
+    downloadBtn.style.borderRadius = '6px';
+    downloadBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+    downloadBtn.style.border = 'none';
+    downloadBtn.style.cursor = 'pointer';
+    downloadBtn.style.transition = 'all 0.3s';
+    downloadBtn.style.color = 'white';
+    downloadBtn.innerHTML = '<i class="fas fa-download" style="margin-right: 8px;"></i> Descargar Plan (CSV)';
+    
+    // Event listeners para el botón
+    downloadBtn.addEventListener('mouseover', function() {
+        this.style.boxShadow = '0 6px 12px rgba(16, 185, 129, 0.4)';
+        this.style.transform = 'translateY(-2px)';
+    });
+    
+    downloadBtn.addEventListener('mouseout', function() {
+        this.style.boxShadow = 'none';
+        this.style.transform = 'translateY(0)';
+    });
+    
+    downloadBtn.addEventListener('click', downloadItinerary);
+    
+    downloadContainer.appendChild(downloadBtn);
+    routeInfo.appendChild(downloadContainer);
+    
+    // Agregar event listeners a los items de ruta
     document.querySelectorAll('.route-step').forEach(item => {
         item.addEventListener('click', function() {
-            const lat = parseFloat(this.getAttribute('data-lat'));
-            const lng = parseFloat(this.getAttribute('data-lng'));
-            const zoom = parseInt(this.getAttribute('data-zoom'));
+            const lat = parseFloat(this.dataset.lat);
+            const lng = parseFloat(this.dataset.lng);
+            const zoom = parseInt(this.dataset.zoom);
             if (!isNaN(lat) && !isNaN(lng)) {
                 map.setView([lat, lng], zoom);
                 document.querySelector('[data-tab="map"]').click();
