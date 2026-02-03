@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     
     <!-- Animaciones y efectos -->
-    <link rel="stylesheet" href="css/animations.css" />
+    <link rel="stylesheet" href="css/animations.css?v=1.0" />
     
     <style>
         * {
@@ -162,16 +162,196 @@
         }
 
         .search-box {
-            padding: 15px;
-            border-bottom: 1px solid #eee;
+            padding: 12px 15px;
+            border-bottom: 2px solid #667eea;
+            background: #f8f9ff;
+            flex-shrink: 0;
         }
 
         .search-box input {
             width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: white;
+        }
+
+        .search-box input::placeholder {
+            color: #a0aec0;
+        }
+
+        /* Estilos para filtros de categoría */
+        #categoryFilters {
+            padding: 10px 15px;
+            background: #f8f9ff;
+            border-bottom: 1px solid #e2e8f0;
+            display: none;
+        }
+
+        #categoryFilters.active {
+            display: block;
+        }
+
+        #categoryFilters > div:first-child {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 10px;
             font-size: 0.9em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #categoryFilters .toggle-btn {
+            padding: 4px 10px;
+            font-size: 0.8em;
+            border-radius: 4px;
+            border: 1px solid #667eea;
+            background: white;
+            color: #667eea;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        #categoryFilters .toggle-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        #categoryFilters .checkbox-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        #categoryFilters label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            color: #2d3748;
+            user-select: none;
+        }
+
+        #categoryFilters input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Estilos para filtros de alcaldía */
+        #alcaldiaFilters {
+            padding: 10px 15px;
+            background: #f8f9ff;
+            border-bottom: 1px solid #e2e8f0;
+            display: none;
+        }
+
+        #alcaldiaFilters.active {
+            display: block;
+        }
+
+        #alcaldiaFilters > div:first-child {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #alcaldiaFilters .toggle-btn {
+            padding: 4px 10px;
+            font-size: 0.8em;
+            border-radius: 4px;
+            border: 1px solid #667eea;
+            background: white;
+            color: #667eea;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        #alcaldiaFilters .toggle-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        #alcaldiaFilters .checkbox-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        #alcaldiaFilters label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            color: #2d3748;
+            user-select: none;
+        }
+
+        #alcaldiaFilters input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Estilos para filtro de museos destacados */
+        #topMuseumsFilter {
+            padding: 10px 15px;
+            background: #fffbea;
+            border-bottom: 1px solid #f0e5d8;
+            display: none;
+        }
+
+        #topMuseumsFilter.active {
+            display: block;
+        }
+
+        #topMuseumsFilter > div:first-child {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+
+        #topMuseumsFilter .checkbox-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        #topMuseumsFilter label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            color: #2d3748;
+            user-select: none;
+        }
+
+        #topMuseumsFilter input[type="radio"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
         }
 
         .tabs {
@@ -441,20 +621,273 @@
             border-left: 4px solid #f56565;
         }
 
-        /* Responsive */
+        /* Responsive - Tablets y pantallas medianas */
+        @media (max-width: 1024px) {
+            .controls {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Responsive - Dispositivos móviles */
         @media (max-width: 768px) {
             .container {
                 flex-direction: column;
+                height: auto;
             }
 
             .sidebar {
                 width: 100%;
                 height: auto;
-                max-height: 40vh;
+                max-height: none;
+                overflow: visible;
+                order: 2;
             }
 
             #map {
-                height: 60vh;
+                order: 1;
+                min-height: 50vh;
+                height: 50vh;
+            }
+
+            .header {
+                padding: 15px;
+            }
+
+            .header h1 {
+                font-size: 1.3em;
+            }
+
+            .header p {
+                font-size: 0.85em;
+            }
+
+            .controls {
+                padding: 10px 15px;
+                gap: 8px;
+                flex-direction: column;
+            }
+
+            .btn {
+                padding: 10px 15px;
+                font-size: 0.9em;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .search-box {
+                padding: 10px 15px;
+                border-bottom: 2px solid #667eea;
+                background: #f8f9ff;
+                position: sticky;
+                top: 0;
+                z-index: 10;
+            }
+
+            .search-box input {
+                padding: 12px 15px;
+                font-size: 16px;
+                border: 2px solid #ddd;
+                border-radius: 8px;
+            }
+
+            #categoryFilters {
+                padding: 8px 12px;
+            }
+
+            #categoryFilters .checkbox-container {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            #categoryFilters label {
+                font-size: 0.8em;
+            }
+
+            #alcaldiaFilters {
+                padding: 8px 12px;
+            }
+
+            #alcaldiaFilters .checkbox-container {
+                gap: 8px;
+            }
+
+            #alcaldiaFilters label {
+                font-size: 0.8em;
+            }
+
+            #topMuseumsFilter {
+                padding: 8px 12px;
+            }
+
+            #topMuseumsFilter > div:first-child {
+                font-size: 0.85em;
+            }
+
+            #topMuseumsFilter .checkbox-container {
+                gap: 10px;
+            }
+
+            #topMuseumsFilter label {
+                font-size: 0.8em;
+            }
+
+            .tabs {
+                display: flex;
+                gap: 0;
+            }
+
+            .tab {
+                flex: 1;
+                padding: 10px;
+                font-size: 0.85em;
+            }
+
+            .tab-content {
+                height: auto;
+                max-height: 35vh;
+                overflow-y: auto;
+            }
+
+            .museum-item {
+                padding: 10px;
+            }
+
+            .museum-name {
+                font-size: 0.9em;
+            }
+
+            .museum-info {
+                font-size: 0.8em;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+            }
+        }
+
+        /* Responsive - Dispositivos muy pequeños (móviles en vertical) */
+        @media (max-width: 480px) {
+            .header {
+                padding: 12px;
+            }
+
+            .header h1 {
+                font-size: 1.1em;
+                margin-bottom: 3px;
+            }
+
+            .header p {
+                font-size: 0.8em;
+            }
+
+            .controls {
+                padding: 8px 12px;
+                gap: 6px;
+            }
+
+            .btn {
+                padding: 8px 12px;
+                font-size: 0.8em;
+                min-height: 40px;
+            }
+
+            .search-box {
+                padding: 8px 12px;
+            }
+
+            .search-box input {
+                padding: 10px 12px;
+                font-size: 16px;
+            }
+
+            #categoryFilters {
+                padding: 8px 12px;
+            }
+
+            #categoryFilters > div:first-child {
+                font-size: 0.85em;
+            }
+
+            #categoryFilters .toggle-btn {
+                padding: 3px 8px;
+                font-size: 0.75em;
+            }
+
+            #categoryFilters .checkbox-container {
+                gap: 6px;
+            }
+
+            #categoryFilters label {
+                font-size: 0.75em;
+                gap: 4px;
+            }
+
+            #alcaldiaFilters {
+                padding: 8px 12px;
+            }
+
+            #alcaldiaFilters > div:first-child {
+                font-size: 0.8em;
+            }
+
+            #alcaldiaFilters .toggle-btn {
+                padding: 2px 6px;
+                font-size: 0.7em;
+            }
+
+            #alcaldiaFilters .checkbox-container {
+                gap: 6px;
+            }
+
+            #alcaldiaFilters label {
+                font-size: 0.7em;
+                gap: 3px;
+            }
+
+            #topMuseumsFilter {
+                padding: 8px 12px;
+            }
+
+            #topMuseumsFilter > div:first-child {
+                font-size: 0.8em;
+            }
+
+            #topMuseumsFilter .checkbox-container {
+                gap: 8px;
+            }
+
+            #topMuseumsFilter label {
+                font-size: 0.7em;
+                gap: 3px;
+            }
+
+            #map {
+                min-height: 45vh;
+                height: 45vh;
+            }
+
+            .tab-content {
+                max-height: 30vh;
+            }
+
+            .museum-list {
+                gap: 6px;
+                padding: 8px;
+            }
+
+            .museum-item {
+                padding: 8px;
+            }
+
+            .badge {
+                font-size: 0.75em;
+                padding: 2px 6px;
             }
         }
     </style>
@@ -498,6 +931,35 @@
 
             <div class="search-box">
                 <input type="text" id="searchMuseum" placeholder="🔍 Buscar museo...">
+            </div>
+
+            <div id="categoryFilters">
+                <div>
+                    <span>🏷️ Filtrar por categoría</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="toggle-btn" id="toggleCategories">Ocultar</button>
+                        <button class="toggle-btn" id="deselectAllCategories">Deseleccionar todas</button>
+                    </div>
+                </div>
+                <div class="checkbox-container"></div>
+            </div>
+
+            <div id="alcaldiaFilters">
+                <div>
+                    <span>🏛️ Filtrar por alcaldía</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="toggle-btn" id="toggleAlcaldias">Ocultar</button>
+                        <button class="toggle-btn" id="deselectAllAlcaldias">Deseleccionar todas</button>
+                    </div>
+                </div>
+                <div class="checkbox-container"></div>
+            </div>
+
+            <div id="topMuseumsFilter">
+                <div>
+                    <span>⭐ Museos destacados</span>
+                </div>
+                <div class="checkbox-container"></div>
             </div>
 
             <div class="tabs">
@@ -586,7 +1048,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/config.js?v=1.0"></script>
+    <script src="js/app.js?v=1.0"></script>
 </body>
 </html>

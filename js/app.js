@@ -128,8 +128,14 @@ function setupEventListeners() {
         tab.addEventListener('click', switchTab);
     });
 
-    // Búsqueda
-    document.getElementById('searchMuseum').addEventListener('input', filterMuseums);
+    // Búsqueda con debouncing para mejor rendimiento en móviles
+    let searchDebounceTimeout;
+    document.getElementById('searchMuseum').addEventListener('input', function(e) {
+        clearTimeout(searchDebounceTimeout);
+        searchDebounceTimeout = setTimeout(() => {
+            filterMuseums();
+        }, 150); // Debounce de 150ms
+    });
 
     // Input file
     document.getElementById('csvFile').addEventListener('change', function(e) {
@@ -233,6 +239,8 @@ async function loadCSVAutomatically() {
                     
                     displayMuseums();
                     buildCategoryFilters();
+                    buildAlcaldiaFilters();
+                    buildTopMuseumsFilter();
                     document.getElementById('btnOptimizeRoute').disabled = false;
                     document.getElementById('btnAutoDownload').disabled = false;
                     
@@ -548,6 +556,10 @@ function displayMuseums() {
         const detailsDiv = document.createElement('div');
         detailsDiv.className = 'museum-info';
         
+        const categoryDiv = document.createElement('div');
+        categoryDiv.innerHTML = '<strong>🏷️</strong> ';
+        categoryDiv.appendChild(createSafeElement('span', museum.categoria || 'N/A'));
+        
         const coloniaDiv = document.createElement('div');
         coloniaDiv.innerHTML = '<strong>📍</strong> ';
         coloniaDiv.appendChild(createSafeElement('span', museum.colonia || 'N/A'));
@@ -560,6 +572,7 @@ function displayMuseums() {
         horarioDiv.innerHTML = '<strong>🕐</strong> ';
         horarioDiv.appendChild(createSafeElement('span', museum.horarios || 'No especificado'));
         
+        detailsDiv.appendChild(categoryDiv);
         detailsDiv.appendChild(coloniaDiv);
         detailsDiv.appendChild(costDiv);
         detailsDiv.appendChild(horarioDiv);
@@ -637,58 +650,24 @@ function toggleMuseumSelection(index) {
 // Construir filtros de categoría
 function buildCategoryFilters() {
     const categorias = [...new Set(museums.map(m => m.categoria).filter(Boolean))].sort();
-    let filterContainer = document.getElementById('categoryFilters');
+    const filterContainer = document.getElementById('categoryFilters');
     
     if (!filterContainer) {
-        // Crear contenedor si no existe
-        const searchBox = document.querySelector('.search-box');
-        if (!searchBox) {
-            console.warn('No se encontró .search-box para crear filtros de categoría');
-            return;
-        }
-        
-        const newDiv = document.createElement('div');
-        newDiv.id = 'categoryFilters';
-        newDiv.style.padding = '10px';
-        newDiv.style.borderBottom = '1px solid #eee';
-        searchBox.parentNode.insertBefore(newDiv, searchBox.nextSibling);
-        filterContainer = newDiv;
+        console.warn('No se encontró elemento categoryFilters en el HTML');
+        return;
     }
+
+    // Mostrar el contenedor de categorías
+    filterContainer.classList.add('active');
+
+    // Obtener el contenedor de checkboxes
+    const checkboxContainer = filterContainer.querySelector('.checkbox-container');
+    checkboxContainer.innerHTML = '';
     
-    filterContainer.innerHTML = '<strong>🏷️ Categorías:</strong> ';
-    
-    // Botón para seleccionar/deseleccionar todas
-    const toggleBtn = document.createElement('button');
-    toggleBtn.style.marginLeft = '10px';
-    toggleBtn.style.padding = '4px 10px';
-    toggleBtn.style.fontSize = '12px';
-    toggleBtn.style.borderRadius = '4px';
-    toggleBtn.style.border = '1px solid #FF6B35';
-    toggleBtn.style.backgroundColor = '#fff';
-    toggleBtn.style.color = '#FF6B35';
-    toggleBtn.style.cursor = 'pointer';
-    toggleBtn.style.fontWeight = '600';
-    toggleBtn.textContent = 'Deseleccionar todas';
-    toggleBtn.addEventListener('click', function() {
-        const allChecked = document.querySelectorAll('#categoryFilters input:checked').length === categorias.length;
-        document.querySelectorAll('#categoryFilters input[type="checkbox"]').forEach(cb => {
-            cb.checked = !allChecked;
-        });
-        filterMuseumsByCategory();
-        toggleBtn.textContent = allChecked ? 'Seleccionar todas' : 'Deseleccionar todas';
-    });
-    filterContainer.appendChild(toggleBtn);
-    
-    // Crear contenedor para checkboxes
-    const checkboxContainer = document.createElement('div');
-    checkboxContainer.style.marginTop = '8px';
-    filterContainer.appendChild(checkboxContainer);
-    
+    // Limpiar y repoblar checkboxes
     categorias.forEach(categoria => {
         const count = museums.filter(m => m.categoria === categoria).length;
         const label = document.createElement('label');
-        label.style.marginRight = '15px';
-        label.style.cursor = 'pointer';
         
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -700,22 +679,167 @@ function buildCategoryFilters() {
         label.appendChild(document.createTextNode(` ${categoria} (${count})`));
         checkboxContainer.appendChild(label);
     });
+
+    // Configurar botón de toggle
+    const toggleBtn = filterContainer.querySelector('#toggleCategories');
+    if (toggleBtn) {
+        let isExpanded = true;
+        toggleBtn.addEventListener('click', function() {
+            isExpanded = !isExpanded;
+            checkboxContainer.style.display = isExpanded ? 'flex' : 'none';
+            toggleBtn.textContent = isExpanded ? 'Ocultar' : 'Mostrar';
+        });
+    }
+
+    // Configurar botón de deseleccionar todas
+    const deselectBtn = filterContainer.querySelector('#deselectAllCategories');
+    if (deselectBtn) {
+        deselectBtn.addEventListener('click', function() {
+            const allChecked = document.querySelectorAll('#categoryFilters .checkbox-container input:checked').length === categorias.length;
+            document.querySelectorAll('#categoryFilters .checkbox-container input[type="checkbox"]').forEach(cb => {
+                cb.checked = !allChecked;
+            });
+            filterMuseumsByCategory();
+            deselectBtn.textContent = allChecked ? 'Seleccionar todas' : 'Deseleccionar todas';
+        });
+    }
 }
 
-// Filtrar museos por categoría
-function filterMuseumsByCategory() {
+// Construir filtros de alcaldía
+function buildAlcaldiaFilters() {
+    const alcaldias = [...new Set(museums.map(m => m.alcaldia).filter(Boolean))].sort();
+    const filterContainer = document.getElementById('alcaldiaFilters');
+    
+    if (!filterContainer) {
+        console.warn('No se encontró elemento alcaldiaFilters en el HTML');
+        return;
+    }
+
+    // Mostrar el contenedor de alcaldías
+    filterContainer.classList.add('active');
+
+    // Obtener el contenedor de checkboxes
+    const checkboxContainer = filterContainer.querySelector('.checkbox-container');
+    checkboxContainer.innerHTML = '';
+    
+    // Limpiar y repoblar checkboxes
+    alcaldias.forEach(alcaldia => {
+        const count = museums.filter(m => m.alcaldia === alcaldia).length;
+        const label = document.createElement('label');
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = alcaldia;
+        checkbox.checked = true;
+        checkbox.addEventListener('change', () => {
+            applyAllFilters();
+        });
+        
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(` ${alcaldia} (${count})`));
+        checkboxContainer.appendChild(label);
+    });
+
+    // Configurar botón de toggle
+    const toggleBtn = filterContainer.querySelector('#toggleAlcaldias');
+    if (toggleBtn) {
+        let isExpanded = true;
+        toggleBtn.addEventListener('click', function() {
+            isExpanded = !isExpanded;
+            checkboxContainer.style.display = isExpanded ? 'flex' : 'none';
+            toggleBtn.textContent = isExpanded ? 'Ocultar' : 'Mostrar';
+        });
+    }
+
+    // Configurar botón de deseleccionar todas
+    const deselectBtn = filterContainer.querySelector('#deselectAllAlcaldias');
+    if (deselectBtn) {
+        deselectBtn.addEventListener('click', function() {
+            const allChecked = document.querySelectorAll('#alcaldiaFilters .checkbox-container input:checked').length === alcaldias.length;
+            document.querySelectorAll('#alcaldiaFilters .checkbox-container input[type="checkbox"]').forEach(cb => {
+                cb.checked = !allChecked;
+            });
+            applyAllFilters();
+            deselectBtn.textContent = allChecked ? 'Seleccionar todas' : 'Deseleccionar todas';
+        });
+    }
+}
+
+// Construir filtros de museos destacados
+function buildTopMuseumsFilter() {
+    const filterContainer = document.getElementById('topMuseumsFilter');
+    
+    if (!filterContainer) {
+        console.warn('No se encontró elemento topMuseumsFilter en el HTML');
+        return;
+    }
+
+    // Mostrar el contenedor
+    filterContainer.classList.add('active');
+
+    // Obtener el contenedor de checkboxes
+    const checkboxContainer = filterContainer.querySelector('.checkbox-container');
+    checkboxContainer.innerHTML = '';
+    
+    // Crear opciones
+    const options = [
+        { value: 'all', label: 'Todos los museos', checked: true },
+        { value: 'top', label: '⭐ Top Museos Destacados', checked: false }
+    ];
+    
+    options.forEach(option => {
+        const label = document.createElement('label');
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'radio';
+        checkbox.name = 'topFilter';
+        checkbox.value = option.value;
+        checkbox.checked = option.checked;
+        checkbox.addEventListener('change', applyAllFilters);
+        
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(` ${option.label}`));
+        checkboxContainer.appendChild(label);
+    });
+}
+
+// Aplicar todos los filtros
+function applyAllFilters() {
+    // Obtener categorías seleccionadas
     const selectedCategories = Array.from(document.querySelectorAll('#categoryFilters input:checked'))
         .map(cb => cb.value);
     
-    const filteredMuseums = museums.filter(m => selectedCategories.includes(m.categoria));
+    // Obtener alcaldías seleccionadas
+    const selectedAlcaldias = Array.from(document.querySelectorAll('#alcaldiaFilters input:checked'))
+        .map(cb => cb.value);
     
-    // Actualizar selectedMuseums para que solo contenga los museos que coinciden con el filtro actual
+    // Obtener opción de museos destacados
+    const showTopOnly = document.querySelector('input[name="topFilter"]:checked')?.value === 'top';
+    
+    // Filtrar museos
+    let filteredMuseums = museums.filter(m => 
+        selectedCategories.includes(m.categoria) && 
+        selectedAlcaldias.includes(m.alcaldia) &&
+        (!showTopOnly || m.destacado === 'sí')
+    );
+    
+    // Actualizar selectedMuseums
     selectedMuseums.clear();
     filteredMuseums.forEach((museum) => {
         const originalIndex = museums.indexOf(museum);
         selectedMuseums.add(originalIndex);
     });
     
+    displayFilteredMuseums(filteredMuseums);
+}
+
+// Filtrar museos por categoría (mantiene compatibilidad)
+function filterMuseumsByCategory() {
+    applyAllFilters();
+}
+
+// Mostrar museos filtrados
+function displayFilteredMuseums(filteredMuseums) {
     const list = document.getElementById('museumsList');
     list.innerHTML = '';
 
@@ -750,7 +874,11 @@ function filterMuseumsByCategory() {
         // Nombre del museo (seguro contra XSS)
         const nameDiv = document.createElement('div');
         nameDiv.className = 'museum-name';
-        nameDiv.textContent = museum.nombre_oficial || '';
+        let nameText = museum.nombre_oficial || '';
+        if (museum.destacado === 'sí') {
+            nameText = '⭐ ' + nameText;
+        }
+        nameDiv.textContent = nameText;
         
         // Información adicional
         const detailsDiv = document.createElement('div');
@@ -759,6 +887,10 @@ function filterMuseumsByCategory() {
         const categoryDiv = document.createElement('div');
         categoryDiv.innerHTML = '<strong>🏷️</strong> ';
         categoryDiv.appendChild(createSafeElement('span', museum.categoria || 'N/A'));
+        
+        const alcaldiaDiv = document.createElement('div');
+        alcaldiaDiv.innerHTML = '<strong>🏛️</strong> ';
+        alcaldiaDiv.appendChild(createSafeElement('span', museum.alcaldia || 'N/A'));
         
         const coloniaDiv = document.createElement('div');
         coloniaDiv.innerHTML = '<strong>📍</strong> ';
@@ -769,6 +901,7 @@ function filterMuseumsByCategory() {
         costDiv.appendChild(createSafeElement('span', museum.costos || 'Consultar'));
         
         detailsDiv.appendChild(categoryDiv);
+        detailsDiv.appendChild(alcaldiaDiv);
         detailsDiv.appendChild(coloniaDiv);
         detailsDiv.appendChild(costDiv);
         
@@ -1026,15 +1159,44 @@ function clearMapMarkers() {
 }
 
 function filterMuseums() {
-    const query = document.getElementById('searchMuseum').value.toLowerCase();
+    const query = document.getElementById('searchMuseum').value.toLowerCase().trim();
     const items = document.querySelectorAll('.museum-item');
+    let visibleCount = 0;
 
-    items.forEach((item, index) => {
-        const museum = museums[index];
-        const match = museum.nombre_oficial.toLowerCase().includes(query) ||
-                     museum.colonia.toLowerCase().includes(query);
+    items.forEach((item) => {
+        // Obtener el nombre del museo desde el texto mostrado
+        const nameDiv = item.querySelector('.museum-name');
+        const infoDiv = item.querySelector('.museum-info');
+        
+        if (!nameDiv) return;
+        
+        const name = nameDiv.textContent.toLowerCase();
+        const info = infoDiv ? infoDiv.textContent.toLowerCase() : '';
+        
+        const match = query === '' || name.includes(query) || info.includes(query);
+        
         item.style.display = match ? 'block' : 'none';
+        if (match) visibleCount++;
     });
+
+    // Mostrar mensaje si no hay resultados
+    const list = document.getElementById('museumsList');
+    let noResultsMsg = list.querySelector('.no-results-msg');
+    
+    if (visibleCount === 0 && query !== '') {
+        if (!noResultsMsg) {
+            noResultsMsg = document.createElement('div');
+            noResultsMsg.className = 'no-results-msg';
+            noResultsMsg.style.padding = '20px';
+            noResultsMsg.style.textAlign = 'center';
+            noResultsMsg.style.color = '#a0aec0';
+            noResultsMsg.style.fontSize = '0.9em';
+            list.appendChild(noResultsMsg);
+        }
+        noResultsMsg.textContent = `📭 No se encontraron museos con "${query}"`;
+    } else if (noResultsMsg) {
+        noResultsMsg.remove();
+    }
 }
 
 function switchTab(e) {
