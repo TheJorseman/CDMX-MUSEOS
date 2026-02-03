@@ -1,7 +1,7 @@
 # 🏛️ Museos CDMX Explorer | City Museum Navigator
 
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 ![Version](https://img.shields.io/badge/version-2.0-orange)
 ![Visitors](https://img.shields.io/badge/demo-live-success)
 
@@ -13,7 +13,7 @@
 
 **Museos CDMX Explorer** es una aplicación web interactiva que te ayuda a planificar rutas óptimas para visitar museos en Ciudad de México. Utiliza algoritmos de optimización de ruta (TSP - Traveling Salesman Problem) para calcular el camino más eficiente entre los museos seleccionados, ahorrándote tiempo y dinero en transporte.
 
-Con más de **198 museos** categorizados (Historia, Arte, Ciencia, Antropología, Literatura y Otros), la aplicación te permite:
+Con **196 museos** categorizados en 15 categorías temáticas (Historia Nacional, Casa Museo, Arte Moderno, Ciencia, Antropología, y más), la aplicación te permite:
 - 🗺️ **Explorar museos en mapa interactivo** con Leaflet.js y OpenStreetMap
 - 🔍 **Filtrar por categoría** cultural o buscar por nombre
 - ✅ **Seleccionar museos** específicos que desees visitar
@@ -32,8 +32,8 @@ Con más de **198 museos** categorizados (Historia, Arte, Ciencia, Antropología
 
 | Característica | Descripción |
 |---|---|
-| 🗂️ **198 Museos** | Base de datos completa con horarios, costos y ubicación |
-| 🎨 **6 Categorías** | Filtrar por Historia, Arte, Ciencia, Antropología, Literatura |
+| 🗂️ **196 Museos** | Base de datos completa con horarios, costos, ubicación y categoría |
+| 🎨 **15 Categorías** | Filtrar por Historia, Arte, Ciencia, Antropología, Literatura, Casa Museo y más |
 | 📍 **Mapa Interactivo** | Zoom, pan, y visualización de puntos de interés |
 | 🎯 **Selección Múltiple** | Elige exactamente qué museos deseas visitar |
 | ⚡ **Optimización TSP** | Calcula ruta mínima en segundos |
@@ -49,7 +49,7 @@ Con más de **198 museos** categorizados (Historia, Arte, Ciencia, Antropología
 1. Haz clic en **"Cargar CSV"** en el sidebar
 2. Selecciona `museos_cdmx_con_categorias.csv`
 3. Verás una barra de progreso mientras se cargan los datos
-4. Los 198 museos aparecerán en la lista
+4. Los 196 museos aparecerán en la lista
 
 #### Paso 2: Filtrar Museos
 - **Por categoría:** Marca las categorías que te interesan
@@ -122,10 +122,10 @@ Luego abre: `http://localhost:8000/visualizador.html`
 ```
 CDMX-MUSEOS/
 ├── visualizador.html              # Aplicación principal
-├── museos_cdmx_con_categorias.csv # Base de datos (198 museos)
+├── museos_cdmx_con_categorias.csv # Base de datos (196 museos)
 ├── README.md                      # Este archivo
 ├── ARQUITECTURA_TECNICA.md        # Documentación técnica
-├── LICENSE                        # MIT License
+├── LICENSE                        # GPL-3.0 License
 │
 ├── js/
 │   ├── app.js                     # Lógica principal (1544 líneas)
@@ -143,16 +143,25 @@ CDMX-MUSEOS/
 
 ### 📊 Estadísticas de Museos
 
-**Total: 198 Museos en CDMX**
+**Total: 196 Museos en CDMX**
 
-| Categoría | Cantidad | Porcentaje |
-|-----------|----------|-----------|
-| Otro | 67 | 33.8% |
-| Historia | 61 | 30.8% |
-| Arte | 48 | 24.2% |
-| Ciencia | 14 | 7.1% |
-| Antropología | 4 | 2.0% |
-| Literatura | 2 | 1.0% |
+| Categoría | Cantidad |
+|-----------|----------|
+| Historia Nacional | 37 |
+| Casa Museo | 28 |
+| Arte Moderno | 19 |
+| Ciencia y Tecnología | 18 |
+| Museos Comunitarios | 17 |
+| Antropología | 15 |
+| Otro | 15 |
+| Arqueología | 11 |
+| Arte Contemporáneo | 9 |
+| Literatura | 8 |
+| Naturaleza y Biología | 7 |
+| Arte Tradicional | 6 |
+| Etnografía | 4 |
+| Historia Regional | 2 |
+| Artes Decorativas | 1 |
 
 ### 🎯 Algoritmo de Optimización
 
@@ -173,7 +182,7 @@ Ver [ARQUITECTURA_TECNICA.md](ARQUITECTURA_TECNICA.md) para detalles completos.
 
 **Vista Principal - Mapa con Museos:**
 ```
-[Mapa interactivo mostrando 198 museos como marcadores]
+[Mapa interactivo mostrando 196 museos como marcadores]
 [Sidebar izquierdo con lista de museos y filtros]
 [Tab "Museos" activo con búsqueda y categorías]
 ```
@@ -236,7 +245,7 @@ Para reportar bugs o sugerencias:
 
 **Museos CDMX Explorer** is an interactive web application that helps you plan optimal routes for visiting museums in Mexico City. It uses route optimization algorithms (TSP - Traveling Salesman Problem) to calculate the most efficient path among selected museums, saving you time and transportation costs.
 
-With more than **198 categorized museums** (History, Art, Science, Anthropology, Literature and Others), the application allows you to:
+With **196 categorized museums** in 15 thematic categories (National History, House Museum, Modern Art, Science, Anthropology, and more), the application allows you to:
 - 🗺️ **Explore museums on interactive map** with Leaflet.js and OpenStreetMap
 - 🔍 **Filter by cultural category** or search by name
 - ✅ **Select specific museums** you want to visit
@@ -255,8 +264,8 @@ With more than **198 categorized museums** (History, Art, Science, Anthropology,
 
 | Feature | Description |
 |---|---|
-| 🗂️ **198 Museums** | Complete database with hours, costs and location |
-| 🎨 **6 Categories** | Filter by History, Art, Science, Anthropology, Literature |
+| 🗂️ **196 Museums** | Complete database with hours, costs, location and category |
+| 🎨 **15 Categories** | Filter by National History, House Museum, Modern Art, Science, Anthropology and more |
 | 📍 **Interactive Map** | Zoom, pan, and points of interest visualization |
 | 🎯 **Multiple Selection** | Choose exactly which museums you want to visit |
 | ⚡ **TSP Optimization** | Calculates minimum route in seconds |
@@ -272,7 +281,7 @@ With more than **198 categorized museums** (History, Art, Science, Anthropology,
 1. Click **"Load CSV"** in the sidebar
 2. Select `museos_cdmx_con_categorias.csv`
 3. You'll see a progress bar while data loads
-4. All 198 museums will appear in the list
+4. All 196 museums will appear in the list
 
 #### Step 2: Filter Museums
 - **By category:** Check the categories you're interested in
@@ -345,10 +354,10 @@ Then open: `http://localhost:8000/visualizador.html`
 ```
 CDMX-MUSEOS/
 ├── visualizador.html              # Main application
-├── museos_cdmx_con_categorias.csv # Database (198 museums)
+├── museos_cdmx_con_categorias.csv # Database (196 museums)
 ├── README.md                      # This file
 ├── ARQUITECTURA_TECNICA.md        # Technical documentation
-├── LICENSE                        # MIT License
+├── LICENSE                        # GPL-3.0 License
 │
 ├── js/
 │   ├── app.js                     # Main logic (1544 lines)
@@ -366,16 +375,25 @@ CDMX-MUSEOS/
 
 ### 📊 Museum Statistics
 
-**Total: 198 Museums in CDMX**
+**Total: 196 Museums in CDMX**
 
-| Category | Quantity | Percentage |
-|----------|----------|-----------|
-| Other | 67 | 33.8% |
-| History | 61 | 30.8% |
-| Art | 48 | 24.2% |
-| Science | 14 | 7.1% |
-| Anthropology | 4 | 2.0% |
-| Literature | 2 | 1.0% |
+| Category | Quantity |
+|----------|----------|
+| National History | 37 |
+| House Museum | 28 |
+| Modern Art | 19 |
+| Science and Technology | 18 |
+| Community Museums | 17 |
+| Anthropology | 15 |
+| Other | 15 |
+| Archaeology | 11 |
+| Contemporary Art | 9 |
+| Literature | 8 |
+| Nature and Biology | 7 |
+| Traditional Art | 6 |
+| Ethnography | 4 |
+| Regional History | 2 |
+| Decorative Arts | 1 |
 
 ### 🎯 Optimization Algorithm
 
@@ -396,7 +414,7 @@ See [ARQUITECTURA_TECNICA.md](ARQUITECTURA_TECNICA.md) for full details.
 
 **Main View - Map with Museums:**
 ```
-[Interactive map showing 198 museums as markers]
+[Interactive map showing 196 museums as markers]
 [Left sidebar with museum list and filters]
 [Active "Museums" tab with search and categories]
 ```
